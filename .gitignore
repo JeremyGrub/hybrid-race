@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+server/db/hybrid-race.db
+server/db/hybrid-race.db-shm
+server/db/hybrid-race.db-wal
+.env
+*.env.local

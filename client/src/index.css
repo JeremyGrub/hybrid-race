@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    background-color: #0a0a0a;
+    color: #ffffff;
+  }
+
+  body {
+    @apply bg-brand-dark text-white antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #111111;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #333333;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #555555;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-brand text-black font-semibold px-5 py-2.5 rounded-lg hover:bg-brand-dim transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed text-sm;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-raised text-white font-medium px-5 py-2.5 rounded-lg border border-surface-border hover:bg-surface-hover transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed text-sm;
+  }
+
+  .btn-ghost {
+    @apply text-gray-400 font-medium px-4 py-2 rounded-lg hover:bg-surface-raised hover:text-white transition-colors duration-150 text-sm;
+  }
+
+  .btn-danger {
+    @apply bg-red-600/20 text-red-400 font-medium px-4 py-2 rounded-lg border border-red-600/30 hover:bg-red-600/30 transition-colors duration-150 text-sm;
+  }
+
+  .card {
+    @apply bg-surface rounded-xl border border-surface-border;
+  }
+
+  .input-field {
+    @apply w-full bg-surface-raised border border-surface-border rounded-lg px-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/20 transition-colors text-sm;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider;
+  }
+
+  .section-title {
+    @apply font-display text-3xl font-bold uppercase tracking-wide;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+}

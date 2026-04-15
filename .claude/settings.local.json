@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/Jeremy/Desktop/hybrid-race log --oneline -5)",
+      "Bash(git -C /c/Users/Jeremy/Desktop/hybrid-race status)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const s = require\\('node:sqlite'\\); console.log\\('node:sqlite available'\\)\")",
+      "Bash(node --no-experimental-warnings -e ':*)",
+      "Bash(node --disable-warning=ExperimentalWarning -e ':*)",
+      "Bash(timeout 5 node --disable-warning=ExperimentalWarning index.js)",
+      "Bash(npm run:*)",
+      "Bash(echo \"PID: $!\")",
+      "Read(//tmp/**)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(taskkill /F /PID 1515)",
+      "Bash(npx kill-port:*)",
+      "Bash(curl -s http://localhost:3001/api/events)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/)",
+      "Bash(curl -s -X POST http://localhost:3001/api/events -H 'Content-Type: application/json' -d '{\"gym_name\":\"Test Gym\",\"location\":\"Austin TX\",\"event_name\":\"Test\",\"event_date\":\"2026-06-01\",\"event_type\":\"[\\\\\"Solo Men\\\\\",\\\\\"Solo Women\\\\\"]\",\"pin\":\"1234\"}')",
+      "Bash(node -e \"process.stdin.resume\\(\\);let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>console.log\\(d\\)\\)\")",
+      "Bash(node scripts/seed.js)",
+      "Bash(npx cloudflared:*)",
+      "Bash(jobs -l)",
+      "Bash(tee /tmp/tunnel.log)",
+      "Bash(curl -s -H \"Host: soma-diagnosis-personally-distinct.trycloudflare.com\" http://localhost:5173/)"
+    ]
+  }
+}
