@@ -7,9 +7,14 @@ const CATEGORY_COLORS = {
   'Relay':         'bg-green-500/15 text-green-400 border-green-500/20',
 };
 
+const DIVISION_COLORS = {
+  'Open': 'bg-brand/15 text-brand border-brand/20',
+  'Pro':  'bg-yellow-400/15 text-yellow-400 border-yellow-400/20',
+};
+
 const AGE_COLORS = {
-  'Open':  'bg-brand/15 text-brand border-brand/20',
-  'Pro':   'bg-yellow-400/15 text-yellow-400 border-yellow-400/20',
+  'U30':   'bg-gray-500/15 text-gray-300 border-gray-500/20',
+  '30-39': 'bg-gray-500/15 text-gray-300 border-gray-500/20',
   '40-49': 'bg-gray-500/15 text-gray-300 border-gray-500/20',
   '50-59': 'bg-gray-500/15 text-gray-300 border-gray-500/20',
   '60-69': 'bg-gray-500/15 text-gray-300 border-gray-500/20',
@@ -23,7 +28,16 @@ export function CategoryBadge({ category }) {
   );
 }
 
+export function DivisionBadge({ division }) {
+  if (!division) return null;
+  const color = DIVISION_COLORS[division] || 'bg-gray-500/15 text-gray-400 border-gray-500/20';
+  return (
+    <span className={`badge border ${color}`}>{division}</span>
+  );
+}
+
 export function AgeGroupBadge({ group }) {
+  if (!group) return null;
   const color = AGE_COLORS[group] || 'bg-gray-500/15 text-gray-400 border-gray-500/20';
   return (
     <span className={`badge border ${color}`}>{group}</span>

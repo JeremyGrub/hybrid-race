@@ -19,7 +19,8 @@ CREATE TABLE IF NOT EXISTS racers (
   last_name   TEXT,
   team_name   TEXT,
   category    TEXT    NOT NULL,
-  age_group   TEXT    NOT NULL DEFAULT 'Open',
+  division    TEXT,
+  age_group   TEXT,
   bib_number  TEXT,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
 );

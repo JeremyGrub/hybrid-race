@@ -1,4 +1,4 @@
-import { CategoryBadge, AgeGroupBadge, StatusBadge } from '../ui/Badge';
+import { CategoryBadge, AgeGroupBadge, DivisionBadge, StatusBadge } from '../ui/Badge';
 
 function displayName(racer) {
   if (racer.team_name) return racer.team_name;
@@ -20,6 +20,9 @@ function RankCell({ rank, dnf, dns }) {
 }
 
 export default function Leaderboard({ results, showCategory = false }) {
+  const hasDivision = results && results.some(r => r.division);
+  const hasAgeGroup = results && results.some(r => r.age_group);
+
   if (!results || results.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
@@ -41,7 +44,12 @@ export default function Leaderboard({ results, showCategory = false }) {
             {showCategory && (
               <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
             )}
-            <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Age Group</th>
+            {hasDivision && (
+              <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Division</th>
+            )}
+            {hasAgeGroup && (
+              <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider hidden sm:table-cell">Age Group</th>
+            )}
             <th className="text-left py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider hidden md:table-cell">Bib</th>
             <th className="text-right py-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Time</th>
           </tr>
@@ -69,9 +77,16 @@ export default function Leaderboard({ results, showCategory = false }) {
                     <CategoryBadge category={racer.category} />
                   </td>
                 )}
-                <td className="py-3.5 px-4 hidden sm:table-cell">
-                  <AgeGroupBadge group={racer.age_group} />
-                </td>
+                {hasDivision && (
+                  <td className="py-3.5 px-4 hidden sm:table-cell">
+                    <DivisionBadge division={racer.division} />
+                  </td>
+                )}
+                {hasAgeGroup && (
+                  <td className="py-3.5 px-4 hidden sm:table-cell">
+                    <AgeGroupBadge group={racer.age_group} />
+                  </td>
+                )}
                 <td className="py-3.5 px-4 hidden md:table-cell text-gray-500">
                   {racer.bib_number || '—'}
                 </td>

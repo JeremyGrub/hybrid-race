@@ -4,10 +4,11 @@ import { api } from '../api/client';
 import Leaderboard from '../components/results/Leaderboard';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
-import { CategoryBadge, AgeGroupBadge } from '../components/ui/Badge';
+import { CategoryBadge, AgeGroupBadge, DivisionBadge } from '../components/ui/Badge';
 
 const CATEGORIES = ['Solo Men', 'Solo Women', 'Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
-const AGE_GROUPS = ['Open', 'Pro', '40-49', '50-59', '60-69', '70+'];
+const AGE_GROUPS = ['U30', '30-39', '40-49', '50-59', '60-69', '70+'];
+const DIVISIONS = ['Open', 'Pro'];
 const TEAM_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
 
 function isTeamCategory(cat) { return TEAM_CATEGORIES.includes(cat); }
@@ -131,7 +132,7 @@ export default function ManageEvent() {
 
   // Add racer modal
   const [addModal, setAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', age_group: 'Open', bib_number: '' });
+  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -215,11 +216,12 @@ export default function ManageEvent() {
         last_name: addForm.last_name.trim() || null,
         team_name: addForm.team_name.trim() || null,
         category: addForm.category,
-        age_group: addForm.age_group,
+        division: addForm.division || null,
+        age_group: addForm.age_group || null,
         bib_number: addForm.bib_number.trim() || null,
       }, pin);
       setAddModal(false);
-      setAddForm({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', age_group: 'Open', bib_number: '' });
+      setAddForm({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
       await loadData();
     } catch (e) {
       setAddError(e.message);
@@ -409,7 +411,7 @@ export default function ManageEvent() {
                 <tr className="border-b border-surface-border">
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Name / Team</th>
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Age Group</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Division / Age Group</th>
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden md:table-cell">Bib</th>
                   <th className="py-3 px-4 w-12" />
                 </tr>
@@ -419,7 +421,12 @@ export default function ManageEvent() {
                   <tr key={r.id} className="border-b border-surface-border/50 hover:bg-surface-raised/30 transition-colors">
                     <td className="py-3.5 px-4 font-medium">{displayName(r)}</td>
                     <td className="py-3.5 px-4 hidden sm:table-cell"><CategoryBadge category={r.category} /></td>
-                    <td className="py-3.5 px-4 hidden sm:table-cell"><AgeGroupBadge group={r.age_group} /></td>
+                    <td className="py-3.5 px-4 hidden sm:table-cell">
+                      <div className="flex items-center gap-1">
+                        <DivisionBadge division={r.division} />
+                        <AgeGroupBadge group={r.age_group} />
+                      </div>
+                    </td>
                     <td className="py-3.5 px-4 hidden md:table-cell text-gray-500">{r.bib_number || '—'}</td>
                     <td className="py-3.5 px-4 text-right">
                       <button
@@ -542,24 +549,36 @@ export default function ManageEvent() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="label">Age Group</label>
+              <label className="label">Division (optional)</label>
+              <select
+                className="input-field"
+                value={addForm.division}
+                onChange={e => setAddForm(f => ({ ...f, division: e.target.value }))}
+              >
+                <option value="">— None —</option>
+                {DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Age Group (optional)</label>
               <select
                 className="input-field"
                 value={addForm.age_group}
                 onChange={e => setAddForm(f => ({ ...f, age_group: e.target.value }))}
               >
+                <option value="">— None —</option>
                 {AGE_GROUPS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
-            <div>
-              <label className="label">Bib # (optional)</label>
-              <input
-                className="input-field"
-                placeholder="42"
-                value={addForm.bib_number}
-                onChange={e => setAddForm(f => ({ ...f, bib_number: e.target.value }))}
-              />
-            </div>
+          </div>
+          <div>
+            <label className="label">Bib # (optional)</label>
+            <input
+              className="input-field"
+              placeholder="42"
+              value={addForm.bib_number}
+              onChange={e => setAddForm(f => ({ ...f, bib_number: e.target.value }))}
+            />
           </div>
 
           {addError && <p className="text-red-400 text-xs">{addError}</p>}

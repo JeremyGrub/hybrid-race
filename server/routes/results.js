@@ -22,13 +22,13 @@ async function verifyRacerPin(db, racerId, pin) {
 
 // GET /api/events/:id/results
 router.get('/events/:id/results', (req, res) => {
-  const { category, age_group } = req.query;
+  const { category, division, age_group } = req.query;
   const db = getDb();
 
   let query = `
     SELECT
       r.id, r.first_name, r.last_name, r.team_name,
-      r.category, r.age_group, r.bib_number,
+      r.category, r.division, r.age_group, r.bib_number,
       res.finish_time, res.finish_time_seconds,
       COALESCE(res.dnf, 0) as dnf,
       COALESCE(res.dns, 0) as dns
@@ -39,6 +39,7 @@ router.get('/events/:id/results', (req, res) => {
   const params = [req.params.id];
 
   if (category) { query += ` AND r.category = ?`; params.push(category); }
+  if (division) { query += ` AND r.division = ?`; params.push(division); }
   if (age_group) { query += ` AND r.age_group = ?`; params.push(age_group); }
 
   query += `
@@ -50,10 +51,10 @@ router.get('/events/:id/results', (req, res) => {
 
   const racers = db.prepare(query).all(...params);
 
-  // Assign rank per category+age_group
+  // Assign rank per category+division+age_group
   const counters = {};
   racers.forEach(r => {
-    const key = `${r.category}||${r.age_group}`;
+    const key = `${r.category}||${r.division||''}||${r.age_group||''}`;
     if (!counters[key]) counters[key] = 0;
     if (r.finish_time_seconds !== null && !r.dnf && !r.dns) {
       counters[key]++;

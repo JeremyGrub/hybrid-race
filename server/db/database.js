@@ -14,6 +14,7 @@ function getDb() {
     db.exec('PRAGMA foreign_keys = ON');
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     db.exec(schema);
+    try { db.exec('ALTER TABLE racers ADD COLUMN division TEXT'); } catch(e) { /* already exists */ }
   }
   return db;
 }
