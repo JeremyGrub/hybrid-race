@@ -22,6 +22,7 @@ export default function CreateEvent() {
     location: '',
     event_date: '',
     event_types: [],
+    registration_link: '',
     description: '',
     pin: '',
     pin_confirm: '',
@@ -70,6 +71,7 @@ export default function CreateEvent() {
         location: form.location.trim(),
         event_date: form.event_date,
         event_type: JSON.stringify(form.event_types),
+        registration_link: form.registration_link.trim() || undefined,
         description: form.description.trim() || undefined,
         pin: form.pin,
       });
@@ -157,6 +159,17 @@ export default function CreateEvent() {
             </div>
             {errors.event_types && <p className="text-red-400 text-xs mt-1.5">{errors.event_types}</p>}
           </div>
+
+          <Field label="Registration Link (optional)" id="registration_link">
+            <input
+              id="registration_link"
+              type="url"
+              className="input-field"
+              placeholder="https://your-registration-link.com"
+              value={form.registration_link}
+              onChange={e => set('registration_link', e.target.value)}
+            />
+          </Field>
 
           <Field label="Description (optional)" id="description">
             <textarea

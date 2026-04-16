@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS events (
   description TEXT,
   event_date  TEXT    NOT NULL,
   event_type  TEXT    NOT NULL,
+  registration_link TEXT,
   pin_hash    TEXT    NOT NULL,
   is_active   INTEGER NOT NULL DEFAULT 1,
   created_at  TEXT    NOT NULL DEFAULT (datetime('now'))

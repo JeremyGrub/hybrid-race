@@ -52,7 +52,7 @@ router.get('/:id', (req, res) => {
 
 // POST /api/events
 router.post('/', async (req, res) => {
-  const { gym_name, location, event_name, description, event_date, event_type, pin } = req.body;
+  const { gym_name, location, event_name, description, event_date, event_type, registration_link, pin } = req.body;
 
   if (!gym_name || !location || !event_name || !event_date || !event_type || !pin) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -85,9 +85,9 @@ router.post('/', async (req, res) => {
   const db = getDb();
 
   const result = db.prepare(`
-    INSERT INTO events (gym_name, location, event_name, description, event_date, event_type, pin_hash)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(gym_name, location, event_name, description || null, event_date, typesToStore, pin_hash);
+    INSERT INTO events (gym_name, location, event_name, description, event_date, event_type, registration_link, pin_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(gym_name, location, event_name, description || null, event_date, typesToStore, registration_link || null, pin_hash);
 
   res.status(201).json({ id: Number(result.lastInsertRowid), event_name });
 });
@@ -107,7 +107,7 @@ router.post('/:id/verify-pin', async (req, res) => {
 
 // PUT /api/events/:id
 router.put('/:id', pinAuth, (req, res) => {
-  const { gym_name, location, event_name, description, event_date, event_type } = req.body;
+  const { gym_name, location, event_name, description, event_date, event_type, registration_link } = req.body;
   const db = getDb();
 
   const event = db.prepare('SELECT * FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
@@ -115,14 +115,15 @@ router.put('/:id', pinAuth, (req, res) => {
 
   db.prepare(`
     UPDATE events SET
-      gym_name    = COALESCE(?, gym_name),
-      location    = COALESCE(?, location),
-      event_name  = COALESCE(?, event_name),
-      description = COALESCE(?, description),
-      event_date  = COALESCE(?, event_date),
-      event_type  = COALESCE(?, event_type)
+      gym_name           = COALESCE(?, gym_name),
+      location           = COALESCE(?, location),
+      event_name         = COALESCE(?, event_name),
+      description        = COALESCE(?, description),
+      event_date         = COALESCE(?, event_date),
+      event_type         = COALESCE(?, event_type),
+      registration_link  = COALESCE(?, registration_link)
     WHERE id = ?
-  `).run(gym_name, location, event_name, description, event_date, event_type, req.params.id);
+  `).run(gym_name, location, event_name, description, event_date, event_type, registration_link, req.params.id);
 
   const updated = db.prepare(`
     SELECT id, gym_name, location, event_name, description, event_date, event_type, is_active, created_at

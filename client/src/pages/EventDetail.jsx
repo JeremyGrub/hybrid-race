@@ -130,10 +130,25 @@ export default function EventDetail() {
           </div>
         </div>
 
-        {event.description && (
-          <p className="text-gray-400 text-sm mt-5 pt-5 border-t border-surface-border leading-relaxed">
-            {event.description}
-          </p>
+        {(event.description || event.registration_link) && (
+          <div className="mt-5 pt-5 border-t border-surface-border space-y-3">
+            {event.description && (
+              <p className="text-gray-400 text-sm leading-relaxed">{event.description}</p>
+            )}
+            {event.registration_link && (
+              <a
+                href={event.registration_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 btn-primary text-sm"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                </svg>
+                Register for this Event
+              </a>
+            )}
+          </div>
         )}
       </div>
 

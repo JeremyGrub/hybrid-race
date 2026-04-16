@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { api } from '../api/client';
+import EventCard from '../components/events/EventCard';
 
 const FEATURES = [
   {
@@ -39,31 +42,93 @@ const FEATURES = [
   },
 ];
 
+// Wires up IntersectionObserver for scroll-reveal on a container ref
+function useScrollReveal(ref, stagger = 120) {
+  useEffect(() => {
+    const container = ref.current;
+    if (!container) return;
+    const items = container.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const els = entry.target.querySelectorAll
+              ? entry.target.querySelectorAll('.reveal')
+              : [entry.target];
+            // if the observed element IS a .reveal, just reveal it
+            if (entry.target.classList.contains('reveal')) {
+              entry.target.classList.add('revealed');
+            } else {
+              els.forEach((el, i) => {
+                setTimeout(() => el.classList.add('revealed'), i * stagger);
+              });
+            }
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 }
+    );
+    // observe each .reveal directly for stagger
+    items.forEach((el, i) => {
+      el.style.transitionDelay = `${i * stagger}ms`;
+      observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [ref, stagger]);
+}
+
 export default function Home() {
+  const featuresRef  = useRef(null);
+  const statsRef     = useRef(null);
+
+  useScrollReveal(featuresRef);
+  useScrollReveal(statsRef, 100);
+
+  const [upcoming, setUpcoming] = useState([]);
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    api.getEvents().then(events => {
+      const future = events
+        .filter(e => e.event_date >= today)
+        .sort((a, b) => a.event_date.localeCompare(b.event_date))
+        .slice(0, 3);
+      setUpcoming(future);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div>
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand/5 via-transparent to-transparent pointer-events-none" />
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand/3 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+        {/* Drifting glow orbs */}
+        <div className="absolute top-0 right-0 w-[700px] h-[700px] rounded-full pointer-events-none
+                        bg-brand/5 blur-3xl animate-drift -translate-y-1/3 translate-x-1/4" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full pointer-events-none
+                        bg-brand/3 blur-3xl animate-drift translate-y-1/2 -translate-x-1/4"
+             style={{ animationDelay: '-7s', animationDuration: '18s' }} />
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-20 pb-24 relative">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 bg-brand/10 border border-brand/20 rounded-full px-4 py-1.5 text-xs text-brand font-medium mb-6">
+            {/* Pill badge */}
+            <div className="animate-fade-up delay-100 inline-flex items-center gap-2 bg-brand/10 border border-brand/20
+                            rounded-full px-4 py-1.5 text-xs text-brand font-medium mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
               Built for hybrid fitness communities
             </div>
+
+            {/* Headline — each line staggers in */}
             <h1 className="font-display text-6xl sm:text-7xl font-extrabold uppercase leading-none tracking-tight mb-6">
-              Run Your
-              <br />
-              <span className="text-brand">Sim Race</span>
-              <br />
-              Events.
+              <span className="block animate-fade-up delay-200">Run Your</span>
+              <span className="block animate-shimmer animate-fade-up delay-300">Sim Race</span>
+              <span className="block animate-fade-up delay-400">Events.</span>
             </h1>
-            <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-lg">
+
+            <p className="text-gray-400 text-lg leading-relaxed mb-10 max-w-lg animate-fade-up delay-500">
               Create hybrid fitness sim events, register athletes, post times, and share live leaderboards — all in one place.
             </p>
-            <div className="flex flex-wrap gap-3">
+
+            <div className="flex flex-wrap gap-3 animate-fade-up delay-600">
               <Link to="/create" className="btn-primary text-base px-7 py-3">
                 Create an Event
               </Link>
@@ -75,15 +140,15 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats strip */}
+      {/* ── Stats strip ──────────────────────────────────── */}
       <section className="border-y border-surface-border bg-surface/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-3 gap-8 text-center">
+        <div ref={statsRef} className="max-w-6xl mx-auto px-4 sm:px-6 py-8 grid grid-cols-3 gap-8 text-center">
           {[
-            { value: 'Solo', label: 'Individual' },
+            { value: 'Solo',    label: 'Individual' },
             { value: 'Doubles', label: 'Pairs' },
-            { value: 'Relay', label: '4-Person' },
+            { value: 'Relay',   label: '4-Person' },
           ].map(({ value, label }) => (
-            <div key={value}>
+            <div key={value} className="reveal">
               <p className="font-display text-3xl font-bold text-brand">{value}</p>
               <p className="text-gray-500 text-xs uppercase tracking-wider mt-1">{label}</p>
             </div>
@@ -91,16 +156,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features */}
+      {/* ── Features ─────────────────────────────────────── */}
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
         <h2 className="section-title text-center mb-12">
           Everything you need to{' '}
           <span className="text-brand">run the day</span>
         </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <div ref={featuresRef} className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {FEATURES.map((f) => (
-            <div key={f.title} className="card p-6">
-              <div className="w-11 h-11 rounded-lg bg-brand/10 border border-brand/20 flex items-center justify-center text-brand mb-4">
+            <div key={f.title} className="card p-6 reveal hover:-translate-y-1 transition-transform duration-200">
+              <div className="w-11 h-11 rounded-lg bg-brand/10 border border-brand/20
+                              flex items-center justify-center text-brand mb-4">
                 {f.icon}
               </div>
               <h3 className="font-display text-lg font-bold uppercase tracking-wide mb-2">{f.title}</h3>
@@ -110,14 +177,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
-        <div className="card p-10 text-center bg-gradient-to-br from-brand/5 to-transparent border-brand/20">
-          <h2 className="section-title mb-3">Ready to race?</h2>
-          <p className="text-gray-400 mb-7">Set up your event in under 2 minutes.</p>
-          <Link to="/create" className="btn-primary text-base px-8 py-3 inline-block">
-            Get Started
-          </Link>
+      {/* ── Upcoming Events ──────────────────────────────── */}
+      {upcoming.length > 0 && (
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 pb-20">
+          <div className="flex items-end justify-between mb-8">
+            <div>
+              <h2 className="section-title">Upcoming <span className="text-brand">Events</span></h2>
+              <p className="text-gray-500 text-sm mt-1">The next races on the calendar</p>
+            </div>
+            <Link to="/events" className="btn-ghost text-sm hidden sm:block">
+              View all →
+            </Link>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {upcoming.map((event, i) => (
+              <div key={event.id} className="animate-fade-up" style={{ animationDelay: `${i * 120}ms`, animationFillMode: 'both' }}>
+                <EventCard event={event} />
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-5 sm:hidden">
+            <Link to="/events" className="btn-ghost text-sm">View all events →</Link>
+          </div>
+        </section>
+      )}
+
+      {/* ── CTA Banner ───────────────────────────────────── */}
+      <section className="relative overflow-hidden border-t border-surface-border mt-4">
+        {/* grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
+             style={{ backgroundImage: 'linear-gradient(#c8ff00 1px, transparent 1px), linear-gradient(90deg, #c8ff00 1px, transparent 1px)', backgroundSize: '48px 48px' }} />
+        {/* glow */}
+        <div className="absolute inset-0 bg-gradient-to-r from-brand/5 via-transparent to-brand/5 pointer-events-none" />
+
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 flex flex-col sm:flex-row items-center justify-between gap-8">
+          <div>
+            <h2 className="font-display text-4xl sm:text-5xl font-extrabold uppercase tracking-tight mb-2">
+              Ready to <span className="text-brand">race?</span>
+            </h2>
+            <p className="text-gray-400 text-base">Set up your event in under 2 minutes.</p>
+          </div>
+          <div className="flex flex-wrap gap-3 shrink-0">
+            <Link to="/create" className="btn-primary text-base px-8 py-3">
+              Create an Event
+            </Link>
+            <Link to="/events" className="btn-secondary text-base px-8 py-3">
+              Browse Events
+            </Link>
+          </div>
         </div>
       </section>
     </div>

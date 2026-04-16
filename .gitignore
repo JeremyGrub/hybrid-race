@@ -1,9 +1,21 @@
+# Dependencies
 node_modules/
 client/node_modules/
 server/node_modules/
+
+# Build output
 client/dist/
-server/db/hybrid-race.db
-server/db/hybrid-race.db-shm
-server/db/hybrid-race.db-wal
+
+# SQLite database files
+server/db/*.db
+server/db/*.db-shm
+server/db/*.db-wal
+
+# Env / secrets
 .env
-*.env.local
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/

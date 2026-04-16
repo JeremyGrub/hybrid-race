@@ -21,7 +21,7 @@ export default function EventCard({ event }) {
   const types = parseTypes(event.event_type);
 
   return (
-    <Link to={`/events/${event.id}`} className="card p-5 block hover:border-brand/30 hover:bg-surface/80 transition-all duration-150 group">
+    <Link to={`/events/${event.id}`} className="card p-5 flex flex-col h-full hover:border-brand/30 hover:bg-surface/80 transition-all duration-150 group">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <h3 className="font-display text-xl font-bold uppercase tracking-wide text-white group-hover:text-brand transition-colors truncate">
@@ -36,7 +36,7 @@ export default function EventCard({ event }) {
         {types.map(t => <CategoryBadge key={t} category={t} />)}
       </div>
 
-      <div className="flex items-center gap-4 text-xs text-gray-500">
+      <div className="flex items-center gap-4 text-xs text-gray-500 mt-auto">
         <span className="flex items-center gap-1">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />

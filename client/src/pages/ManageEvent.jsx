@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import Leaderboard from '../components/results/Leaderboard';
@@ -17,41 +17,98 @@ function displayName(racer) {
   return [racer.first_name, racer.last_name].filter(Boolean).join(' ') || '—';
 }
 
-function TimeInput({ value, onChange, onSave, dnf, dns, onDnf, onDns, saving }) {
+function formatTimeInput(raw) {
+  // Keep only digits, max 6 (HHMMSS)
+  const digits = raw.replace(/\D/g, '').slice(0, 6);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`;
+}
+
+function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, saving, saved, locked }) {
+  const inputRef = useRef(null);
+
+  // When unlocked, focus the input immediately
+  useEffect(() => {
+    if (!locked && inputRef.current) inputRef.current.focus();
+  }, [locked]);
+
+  function handleChange(e) {
+    const raw = e.target.value;
+    onChange(formatTimeInput(raw));
+  }
+
+  function handleKeyDown(e) {
+    const input = e.target;
+    if (e.key === 'Backspace' && input.selectionStart === input.selectionEnd) {
+      const pos = input.selectionStart;
+      if (pos > 0 && value[pos - 1] === ':') {
+        e.preventDefault();
+        const digits = value.replace(/\D/g, '').slice(0, -1);
+        onChange(formatTimeInput(digits));
+      }
+    }
+    if (e.key === 'Enter') onSave();
+    if (e.key === 'Escape') onEdit(false); // cancel → re-lock without saving
+  }
+
+  // Locked display
+  if (locked) {
+    const display = dnf ? 'DNF' : dns ? 'DNS' : value || '—';
+    const displayColor = dnf ? 'text-red-400' : dns ? 'text-gray-500' : value ? 'text-white' : 'text-gray-600';
+    return (
+      <div className="flex items-center gap-3">
+        <span className={`font-display text-lg font-semibold w-24 ${displayColor}`}>
+          {display}
+        </span>
+        <button
+          onClick={() => onEdit(true)}
+          className="text-xs text-gray-500 hover:text-brand transition-colors flex items-center gap-1"
+        >
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+          </svg>
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  // Unlocked / editing display
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2 flex-wrap">
       <input
+        ref={inputRef}
         type="text"
-        placeholder="MM:SS"
+        inputMode="numeric"
+        placeholder="HH:MM:SS"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        onBlur={onSave}
         disabled={dnf || dns}
-        className="input-field w-28 font-mono text-center"
+        className="input-field w-32 font-mono text-center"
       />
       <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={!!dnf}
+        <input type="checkbox" checked={!!dnf}
           onChange={e => { onDnf(e.target.checked); if (e.target.checked) onDns(false); }}
-          className="accent-red-500"
-        />
+          className="accent-red-500" />
         DNF
       </label>
       <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={!!dns}
+        <input type="checkbox" checked={!!dns}
           onChange={e => { onDns(e.target.checked); if (e.target.checked) onDnf(false); }}
-          className="accent-gray-500"
-        />
+          className="accent-gray-500" />
         DNS
       </label>
       <button
         onClick={onSave}
         disabled={saving}
-        className="btn-primary py-1.5 text-xs"
+        className={`py-1.5 text-xs font-semibold px-3 rounded-lg border transition-all duration-200 ${
+          saved ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'btn-primary'
+        }`}
       >
-        {saving ? '...' : 'Save'}
+        {saving ? '...' : saved ? '✓ Saved' : 'Save'}
       </button>
     </div>
   );
@@ -78,9 +135,19 @@ export default function ManageEvent() {
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
 
-  // Delete confirm
+  // Delete racer confirm
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Edit event modal
+  const [editModal, setEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editError, setEditError] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  // Delete event modal
+  const [deleteEventModal, setDeleteEventModal] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
 
   // Time entry state: { [racerId]: { time, dnf, dns, saving } }
   const [timeState, setTimeState] = useState({});
@@ -98,6 +165,8 @@ export default function ManageEvent() {
           dnf: !!r.dnf,
           dns: !!r.dns,
           saving: false,
+          saved: false,
+          locked: !!(r.finish_time || r.dnf || r.dns),
         };
       });
       setTimeState(ts);
@@ -170,6 +239,69 @@ export default function ManageEvent() {
     finally { setDeleting(false); }
   }
 
+  function parseEventTypes(raw) {
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch { return [raw]; }
+  }
+
+  function openEditModal() {
+    setEditForm({
+      event_name: event?.event_name || '',
+      gym_name: event?.gym_name || '',
+      location: event?.location || '',
+      event_date: event?.event_date || '',
+      description: event?.description || '',
+      registration_link: event?.registration_link || '',
+      event_types: parseEventTypes(event?.event_type),
+    });
+    setEditError('');
+    setEditModal(true);
+  }
+
+  function toggleEditType(t) {
+    setEditForm(f => {
+      const has = f.event_types.includes(t);
+      return { ...f, event_types: has ? f.event_types.filter(x => x !== t) : [...f.event_types, t] };
+    });
+  }
+
+  async function handleEditEvent(e) {
+    e.preventDefault();
+    setEditError('');
+    if (!editForm.event_types.length) { setEditError('Select at least one event type'); return; }
+    setEditing(true);
+    try {
+      await api.updateEvent(id, {
+        event_name: editForm.event_name,
+        gym_name: editForm.gym_name,
+        location: editForm.location,
+        event_date: editForm.event_date,
+        description: editForm.description || null,
+        registration_link: editForm.registration_link || null,
+        event_type: JSON.stringify(editForm.event_types),
+      }, pin);
+      setEditModal(false);
+      await loadData();
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setEditing(false);
+    }
+  }
+
+  async function handleDeleteEvent() {
+    setDeletingEvent(true);
+    try {
+      await api.deleteEvent(id, pin);
+      navigate('/events');
+    } catch {
+      setDeletingEvent(false);
+    }
+  }
+
   function updateTime(racerId, key, val) {
     setTimeState(ts => ({ ...ts, [racerId]: { ...ts[racerId], [key]: val } }));
   }
@@ -184,6 +316,9 @@ export default function ManageEvent() {
         dns: state.dns || false,
       }, pin);
       await loadData();
+      updateTime(racer.id, 'saved', true);
+      updateTime(racer.id, 'locked', true);
+      setTimeout(() => updateTime(racer.id, 'saved', false), 1500);
     } catch (e) {
       alert(e.message);
     } finally {
@@ -238,9 +373,11 @@ export default function ManageEvent() {
           <h1 className="font-display text-3xl font-bold uppercase tracking-wide">{event.event_name}</h1>
           <p className="text-gray-400 text-sm mt-0.5">{event.gym_name} · {event.location}</p>
         </div>
-        <button onClick={() => setAddModal(true)} className="btn-primary shrink-0">
-          + Add Racer
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button onClick={openEditModal} className="btn-secondary">Edit Event</button>
+          <button onClick={() => setDeleteEventModal(true)} className="btn-danger">Delete</button>
+          <button onClick={() => setAddModal(true)} className="btn-primary">+ Add Racer</button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -329,11 +466,14 @@ export default function ManageEvent() {
                           value={ts.time}
                           onChange={v => updateTime(r.id, 'time', v)}
                           onSave={() => saveTime(r)}
+                          onEdit={unlock => updateTime(r.id, 'locked', !unlock)}
                           dnf={ts.dnf}
                           dns={ts.dns}
                           onDnf={v => updateTime(r.id, 'dnf', v)}
                           onDns={v => updateTime(r.id, 'dns', v)}
                           saving={ts.saving}
+                          saved={ts.saved}
+                          locked={ts.locked}
                         />
                       </td>
                     </tr>
@@ -429,7 +569,72 @@ export default function ManageEvent() {
         </form>
       </Modal>
 
-      {/* Delete confirm modal */}
+      {/* Edit event modal */}
+      <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Event">
+        <form onSubmit={handleEditEvent} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="label">Event Name</label>
+              <input className="input-field" value={editForm.event_name || ''} onChange={e => setEditForm(f => ({ ...f, event_name: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Gym Name</label>
+              <input className="input-field" value={editForm.gym_name || ''} onChange={e => setEditForm(f => ({ ...f, gym_name: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Location</label>
+              <input className="input-field" placeholder="City, ST" value={editForm.location || ''} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Event Date</label>
+              <input type="date" className="input-field" value={editForm.event_date || ''} onChange={e => setEditForm(f => ({ ...f, event_date: e.target.value }))} required />
+            </div>
+            <div>
+              <label className="label">Registration Link (optional)</label>
+              <input type="url" className="input-field" placeholder="https://..." value={editForm.registration_link || ''} onChange={e => setEditForm(f => ({ ...f, registration_link: e.target.value }))} />
+            </div>
+            <div className="col-span-2">
+              <label className="label">Description (optional)</label>
+              <textarea className="input-field resize-none" rows={2} value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Event Types</label>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map(t => (
+                <button key={t} type="button"
+                  onClick={() => toggleEditType(t)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                    (editForm.event_types || []).includes(t)
+                      ? 'bg-brand text-black border-brand'
+                      : 'bg-surface-raised text-gray-400 border-surface-border hover:border-brand/40'
+                  }`}
+                >{t}</button>
+              ))}
+            </div>
+          </div>
+          {editError && <p className="text-red-400 text-xs">{editError}</p>}
+          <button type="submit" disabled={editing} className="btn-primary w-full">
+            {editing ? 'Saving...' : 'Save Changes'}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Delete event modal */}
+      <Modal open={deleteEventModal} onClose={() => setDeleteEventModal(false)} title="Delete Event">
+        <p className="text-gray-400 text-sm mb-2">
+          This will permanently delete <span className="text-white font-medium">{event?.event_name}</span> and all its racers and results.
+        </p>
+        <p className="text-red-400 text-xs mb-6">This cannot be undone.</p>
+        <div className="flex gap-3">
+          <button onClick={() => setDeleteEventModal(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={handleDeleteEvent} disabled={deletingEvent} className="btn-danger flex-1">
+            {deletingEvent ? 'Deleting...' : 'Delete Event'}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Delete racer confirm modal */}
       <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Remove Racer">
         <p className="text-gray-400 text-sm mb-5">Are you sure you want to remove this racer? This also deletes their result.</p>
         <div className="flex gap-3">

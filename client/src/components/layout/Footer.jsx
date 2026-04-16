@@ -7,9 +7,14 @@ export default function Footer() {
         <Link to="/" className="font-display text-lg font-bold tracking-widest uppercase">
           Race<span className="text-brand">Grid</span>
         </Link>
-        <p className="text-gray-500 text-xs">
-          Independent hybrid fitness event management. Not affiliated with any race organization.
-        </p>
+        <div className="text-center sm:text-right">
+          <p className="text-gray-500 text-xs">
+            Independent hybrid fitness event management. Not affiliated with any race organization.
+          </p>
+          <p className="text-gray-600 text-xs mt-1">
+            Built by <span className="text-gray-400 font-medium">GRUB FORGE LLC</span>
+          </p>
+        </div>
       </div>
     </footer>
   );
