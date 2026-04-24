@@ -14,7 +14,41 @@ function getDb() {
     db.exec('PRAGMA foreign_keys = ON');
     const schema = fs.readFileSync(SCHEMA_PATH, 'utf8');
     db.exec(schema);
+
+    // Migration 1: add division column if missing
     try { db.exec('ALTER TABLE racers ADD COLUMN division TEXT'); } catch(e) { /* already exists */ }
+
+    // Migration 2: remove NOT NULL constraint from age_group (requires table rebuild in SQLite)
+    try {
+      const cols = db.prepare('PRAGMA table_info(racers)').all();
+      const ageCol = cols.find(c => c.name === 'age_group');
+      if (ageCol && ageCol.notnull === 1) {
+        db.exec('PRAGMA foreign_keys = OFF');
+        db.exec('BEGIN');
+        db.exec(`CREATE TABLE racers_v2 (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+          first_name TEXT,
+          last_name  TEXT,
+          team_name  TEXT,
+          category   TEXT NOT NULL,
+          division   TEXT,
+          age_group  TEXT,
+          bib_number TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )`);
+        db.exec('INSERT INTO racers_v2 SELECT id, event_id, first_name, last_name, team_name, category, division, age_group, bib_number, created_at FROM racers');
+        db.exec('DROP TABLE racers');
+        db.exec('ALTER TABLE racers_v2 RENAME TO racers');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_racers_event ON racers(event_id)');
+        db.exec('COMMIT');
+        db.exec('PRAGMA foreign_keys = ON');
+      }
+    } catch(e) {
+      try { db.exec('ROLLBACK'); } catch(_) {}
+      db.exec('PRAGMA foreign_keys = ON');
+      console.error('Migration 2 error:', e.message);
+    }
   }
   return db;
 }
