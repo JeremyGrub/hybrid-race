@@ -179,8 +179,8 @@ router.post('/', gymAuth, (req, res, next) => {
     typesToStore,
     pin_hash,
     priceInCents,
-    use_divisions ? 1 : 0,
-    use_age_groups ? 1 : 0,
+    use_divisions === '1' ? 1 : 0,
+    use_age_groups === '1' ? 1 : 0,
     waiverPath
   );
 
