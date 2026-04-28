@@ -188,7 +188,7 @@ export default function Register() {
         </div>
 
         {/* Division & Age Group */}
-        {category && (event.use_divisions || event.use_age_groups) && (
+        {category && !!(event.use_divisions || event.use_age_groups) && (
           <div className="card p-6 space-y-4">
             <h2 className="font-display text-base font-bold uppercase tracking-widest text-gray-400">Division &amp; Age Group</h2>
 
