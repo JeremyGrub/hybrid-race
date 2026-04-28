@@ -372,41 +372,44 @@ export default function ManageEvent() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link to={isOwner ? '/dashboard' : `/events/${id}`} className="text-gray-500 hover:text-gray-300 text-xs">
-              {isOwner ? '← Dashboard' : '← Back to event'}
-            </Link>
-          </div>
-          <h1 className="font-display text-3xl font-bold uppercase tracking-wide">{event.event_name}</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{event.gym_name} · {event.location}</p>
+      <div className="mb-6">
+        <div className="flex items-center gap-2 mb-2">
+          <Link to={isOwner ? '/dashboard' : `/events/${id}`} className="text-gray-500 hover:text-gray-300 text-xs">
+            {isOwner ? '← Dashboard' : '← Back to event'}
+          </Link>
         </div>
-        {isOwner && (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <button
-              onClick={() => { setResetPinModal(true); setNewPin(''); }}
-              className="btn-secondary text-xs"
-              title="Generate a new event PIN"
-            >
-              🔑 Reset PIN
-            </button>
-            <button onClick={openEditModal} className="btn-secondary">Edit Event</button>
-            <button onClick={() => setDeleteEventModal(true)} className="btn-danger">Delete</button>
-            <button onClick={() => setAddModal(true)} className="btn-primary">+ Add Racer</button>
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-wide leading-tight">{event.event_name}</h1>
+            <p className="text-gray-400 text-sm mt-0.5">{event.gym_name} · {event.location}</p>
           </div>
-        )}
+          {isOwner && (
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 shrink-0">
+              <button
+                onClick={() => { setResetPinModal(true); setNewPin(''); }}
+                className="btn-secondary text-xs"
+                title="Generate a new event PIN"
+              >
+                🔑 Reset PIN
+              </button>
+              <button onClick={openEditModal} className="btn-secondary text-sm">Edit Event</button>
+              <button onClick={() => setDeleteEventModal(true)} className="btn-danger text-sm">Delete</button>
+              <button onClick={() => setAddModal(true)} className="btn-primary text-sm col-span-2 sm:col-span-1">+ Add Racer</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-surface rounded-xl p-1 border border-surface-border w-fit overflow-x-auto">
+      <div className="w-full overflow-x-auto mb-6">
+        <div className="flex gap-1 bg-surface rounded-xl p-1 border border-surface-border w-fit min-w-full sm:min-w-0 sm:w-fit">
         {tabs.map(tab => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+            className={`px-3 sm:px-5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors ${
               activeTab === tab.key ? 'bg-brand text-black' : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -418,6 +421,7 @@ export default function ManageEvent() {
             )}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Registrations tab */}
