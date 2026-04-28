@@ -5,9 +5,10 @@ const { gymAuth } = require('../middleware/gymAuth');
 const router = express.Router();
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
-const TEAM_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
+const DOUBLES_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed'];
 
-function isTeam(cat) { return TEAM_CATEGORIES.includes(cat); }
+function isDoubles(cat) { return DOUBLES_CATEGORIES.includes(cat); }
+function isTeam(cat) { return DOUBLES_CATEGORIES.includes(cat) || cat === 'Relay'; }
 
 function createRacersFromRegistration(db, registration, event) {
   const athletes = JSON.parse(registration.athletes);
@@ -16,8 +17,20 @@ function createRacersFromRegistration(db, registration, event) {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
-  if (isTeam(registration.category)) {
-    // For team categories, insert one racer per athlete
+  if (isDoubles(registration.category)) {
+    // Doubles: one racer row with auto-combined name "First1 Last1 & First2 Last2"
+    const names = athletes.slice(0, 2)
+      .map(a => [a.first_name, a.last_name].filter(Boolean).join(' '))
+      .filter(Boolean);
+    const combinedName = names.join(' & ') || 'Unknown Team';
+    insertRacer.run(
+      event.id, null, null, combinedName,
+      registration.category,
+      registration.division || null,
+      registration.age_group || null
+    );
+  } else if (registration.category === 'Relay') {
+    // Relay: one racer per athlete, shared team name
     for (const athlete of athletes) {
       insertRacer.run(
         event.id,

@@ -9,9 +9,12 @@ import { CategoryBadge, AgeGroupBadge, DivisionBadge } from '../components/ui/Ba
 const CATEGORIES = ['Solo Men', 'Solo Women', 'Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
 const AGE_GROUPS = ['U30', '30-39', '40-49', '50-59', '60-69', '70+'];
 const DIVISIONS = ['Open', 'Pro'];
-const TEAM_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
+const DOUBLES_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed'];
+const TEAM_CATEGORIES = [...DOUBLES_CATEGORIES, 'Relay'];
 
 function isTeamCategory(cat) { return TEAM_CATEGORIES.includes(cat); }
+function isDoubles(cat) { return DOUBLES_CATEGORIES.includes(cat); }
+function isRelay(cat) { return cat === 'Relay'; }
 
 function displayName(racer) {
   if (racer.team_name) return racer.team_name;
@@ -126,7 +129,7 @@ export default function ManageEvent() {
   const [activeTab, setActiveTab] = useState('registrations');
 
   const [addModal, setAddModal] = useState(false);
-  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
+  const [addForm, setAddForm] = useState({ first_name: '', last_name: '', partner_first: '', partner_last: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -205,22 +208,36 @@ export default function ManageEvent() {
   async function handleAddRacer(e) {
     e.preventDefault();
     setAddError('');
-    const isTeam = isTeamCategory(addForm.category);
-    if (isTeam && !addForm.team_name.trim()) { setAddError('Team name required'); return; }
-    if (!isTeam && !addForm.first_name.trim() && !addForm.last_name.trim()) { setAddError('Name required'); return; }
+    const cat = addForm.category;
+    if (isRelay(cat) && !addForm.team_name.trim()) { setAddError('Team name required'); return; }
+    if (isDoubles(cat) && (!addForm.first_name.trim() || !addForm.partner_first.trim())) { setAddError('Both athlete names required'); return; }
+    if (!isTeamCategory(cat) && !addForm.first_name.trim() && !addForm.last_name.trim()) { setAddError('Name required'); return; }
+
+    // For doubles: combine athlete names as the team_name
+    let teamName = addForm.team_name.trim() || null;
+    let firstName = addForm.first_name.trim() || null;
+    let lastName = addForm.last_name.trim() || null;
+    if (isDoubles(cat)) {
+      const name1 = [addForm.first_name.trim(), addForm.last_name.trim()].filter(Boolean).join(' ');
+      const name2 = [addForm.partner_first.trim(), addForm.partner_last.trim()].filter(Boolean).join(' ');
+      teamName = [name1, name2].filter(Boolean).join(' & ');
+      firstName = null;
+      lastName = null;
+    }
+
     setAdding(true);
     try {
       await api.addRacer(id, {
-        first_name: addForm.first_name.trim() || null,
-        last_name: addForm.last_name.trim() || null,
-        team_name: addForm.team_name.trim() || null,
-        category: addForm.category,
+        first_name: firstName,
+        last_name: lastName,
+        team_name: teamName,
+        category: cat,
         division: addForm.division || null,
         age_group: addForm.age_group || null,
         bib_number: addForm.bib_number.trim() || null,
       }, pin);
       setAddModal(false);
-      setAddForm({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
+      setAddForm({ first_name: '', last_name: '', partner_first: '', partner_last: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
       await loadData();
     } catch (e) {
       setAddError(e.message);
@@ -573,7 +590,30 @@ export default function ManageEvent() {
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-              {isTeamCategory(addForm.category) ? (
+              {isDoubles(addForm.category) ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Athlete 1 First</label>
+                      <input className="input-field" placeholder="Jane" value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="label">Athlete 1 Last</label>
+                      <input className="input-field" placeholder="Smith" value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="label">Athlete 2 First</label>
+                      <input className="input-field" placeholder="Bob" value={addForm.partner_first} onChange={e => setAddForm(f => ({ ...f, partner_first: e.target.value }))} />
+                    </div>
+                    <div>
+                      <label className="label">Athlete 2 Last</label>
+                      <input className="input-field" placeholder="Jones" value={addForm.partner_last} onChange={e => setAddForm(f => ({ ...f, partner_last: e.target.value }))} />
+                    </div>
+                  </div>
+                </div>
+              ) : isRelay(addForm.category) ? (
                 <div>
                   <label className="label">Team Name</label>
                   <input className="input-field" placeholder="Team name" value={addForm.team_name} onChange={e => setAddForm(f => ({ ...f, team_name: e.target.value }))} />

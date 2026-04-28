@@ -5,10 +5,13 @@ import Spinner from '../components/ui/Spinner';
 
 const DIVISIONS = ['Open', 'Pro'];
 const AGE_GROUPS = ['U30', '30-39', '40-49', '50-59', '60-69', '70+'];
-const TEAM_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
+const DOUBLES_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed'];
+const TEAM_CATEGORIES = [...DOUBLES_CATEGORIES, 'Relay'];
 const ATHLETE_COUNT = { 'Doubles Men': 2, 'Doubles Women': 2, 'Doubles Mixed': 2, 'Relay': 4 };
 
 function isTeam(cat) { return TEAM_CATEGORIES.includes(cat); }
+function isDoubles(cat) { return DOUBLES_CATEGORIES.includes(cat); }
+function isRelay(cat) { return cat === 'Relay'; }
 
 function parseTypes(event_type) {
   if (!event_type) return [];
@@ -87,7 +90,7 @@ export default function Register() {
   function validate() {
     const errs = {};
     if (!category) { errs.category = 'Select a category'; }
-    if (isTeam(category) && !teamName.trim()) { errs.team_name = 'Team name is required'; }
+    if (isRelay(category) && !teamName.trim()) { errs.team_name = 'Team name is required'; }
     athletes.forEach((a, i) => {
       if (!a.first_name.trim()) errs[`athlete_${i}_first_name`] = 'Required';
       if (!a.last_name.trim()) errs[`athlete_${i}_last_name`] = 'Required';
@@ -245,7 +248,7 @@ export default function Register() {
               {teamMode ? 'Team Info' : 'Athlete Info'}
             </h2>
 
-            {teamMode && (
+            {isRelay(category) && (
               <div>
                 <label className="label">Team Name</label>
                 <input
