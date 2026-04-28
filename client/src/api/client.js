@@ -79,6 +79,7 @@ export const api = {
   stripeConnect: () => request('POST', '/auth/stripe/connect'),
 
   // ── Registrations ────────────────────────────────────────
+  validateMemberCode: (eventId, code) => request('POST', `/events/${eventId}/validate-member-code`, { body: { code } }),
   checkout: (eventId, body) => request('POST', `/events/${eventId}/checkout`, { body }),
   getRegistrations: (eventId) => request('GET', `/events/${eventId}/registrations`),
   getConfirmation: (params) => {

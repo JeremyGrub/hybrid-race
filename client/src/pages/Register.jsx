@@ -56,6 +56,9 @@ export default function Register() {
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [waiverAgreed, setWaiverAgreed] = useState(false);
   const [waiverName, setWaiverName] = useState('');
+  const [memberCode, setMemberCode] = useState('');
+  const [memberCodeStatus, setMemberCodeStatus] = useState(null); // null | 'valid' | 'invalid' | 'checking'
+  const [memberPriceApplied, setMemberPriceApplied] = useState(null); // cents
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -90,6 +93,24 @@ export default function Register() {
   function setAthlete(idx, field, val) {
     setAthletes(prev => prev.map((a, i) => i === idx ? { ...a, [field]: val } : a));
     setErrors(e => ({ ...e, [`athlete_${idx}_${field}`]: null }));
+  }
+
+  async function validateMemberCode(code) {
+    if (!code.trim()) { setMemberCodeStatus(null); setMemberPriceApplied(null); return; }
+    setMemberCodeStatus('checking');
+    try {
+      const result = await api.validateMemberCode(id, code.trim());
+      if (result.valid) {
+        setMemberCodeStatus('valid');
+        setMemberPriceApplied(result.member_price);
+      } else {
+        setMemberCodeStatus('invalid');
+        setMemberPriceApplied(null);
+      }
+    } catch {
+      setMemberCodeStatus('invalid');
+      setMemberPriceApplied(null);
+    }
   }
 
   function validate() {
@@ -132,6 +153,7 @@ export default function Register() {
         terms_agreed: true,
         waiver_agreed: waiverAgreed,
         waiver_name: waiverName || undefined,
+        member_code: memberCodeStatus === 'valid' ? memberCode : undefined,
       };
 
       const result = await api.checkout(id, body);
@@ -151,9 +173,12 @@ export default function Register() {
   if (!event) return <div className="text-center py-32 text-gray-400">Event not found.</div>;
 
   const types = parseTypes(event.event_type);
-  const perPersonDisplay = formatPrice(event.price);
+  const effectivePrice = memberCodeStatus === 'valid' && memberPriceApplied !== null
+    ? memberPriceApplied
+    : event.price;
+  const perPersonDisplay = formatPrice(effectivePrice);
   const count = category ? (ATHLETE_COUNT[category] || 1) : 1;
-  const totalDisplay = totalPrice(event.price, count);
+  const totalDisplay = totalPrice(effectivePrice, count);
   const teamMode = isTeam(category);
   const athleteCount = teamMode ? (ATHLETE_COUNT[category] || 2) : 1;
 
@@ -325,6 +350,43 @@ export default function Register() {
                 {errors.lead_email && <p className="text-red-400 text-xs mt-1">{errors.lead_email}</p>}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Member code */}
+        {category && event.has_member_pricing && (
+          <div className="card p-6 space-y-3">
+            <h2 className="font-display text-base font-bold uppercase tracking-widest text-gray-400">Member Pricing</h2>
+            <div>
+              <label className="label">
+                Member Code <span className="text-gray-500 font-normal">(optional)</span>
+              </label>
+              <input
+                className="input-field"
+                placeholder="Enter your member code"
+                value={memberCode}
+                onChange={e => {
+                  setMemberCode(e.target.value);
+                  setMemberCodeStatus(null);
+                  setMemberPriceApplied(null);
+                }}
+                onBlur={e => validateMemberCode(e.target.value)}
+              />
+              {memberCodeStatus === 'checking' && (
+                <p className="text-gray-400 text-xs mt-1">Checking...</p>
+              )}
+              {memberCodeStatus === 'valid' && (
+                <p className="text-green-400 text-xs mt-1">
+                  ✓ Member pricing applied — {formatPrice(memberPriceApplied)}/person
+                </p>
+              )}
+              {memberCodeStatus === 'invalid' && (
+                <p className="text-red-400 text-xs mt-1">Invalid member code</p>
+              )}
+              <p className="text-xs text-gray-600 mt-1.5">
+                Member pricing is subject to verification. Non-members may be charged the difference on race day.
+              </p>
+            </div>
           </div>
         )}
 

@@ -74,6 +74,7 @@ router.post('/events/:id/checkout', async (req, res) => {
   const {
     category, division, age_group, team_name,
     athletes, lead_email, waiver_agreed, waiver_name, terms_agreed,
+    member_code,
   } = req.body;
 
   if (!category) return res.status(400).json({ error: 'Category is required' });
@@ -89,9 +90,19 @@ router.post('/events/:id/checkout', async (req, res) => {
     return res.status(400).json({ error: 'Please type your full name to sign the waiver' });
   }
 
+  // Validate member code server-side and determine unit price
+  let unitPrice = event.price;
+  let memberCodeApplied = false;
+  if (member_code && event.member_code && event.member_price !== null) {
+    if (event.member_code.trim().toLowerCase() === member_code.trim().toLowerCase()) {
+      unitPrice = event.member_price;
+      memberCodeApplied = true;
+    }
+  }
+
   const now = new Date().toISOString();
 
-  if (!event.price || event.price === 0) {
+  if (!unitPrice || unitPrice === 0) {
     // Free event: create registration + racers directly
     const regResult = db.prepare(`
       INSERT INTO registrations (event_id, status, category, division, age_group, team_name, athletes, lead_email,
@@ -139,6 +150,7 @@ router.post('/events/:id/checkout', async (req, res) => {
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
     const count = athleteCount(category);
+    const priceLabel = `$${(unitPrice / 100).toFixed(2)}/person${memberCodeApplied ? ' (member)' : ''}`;
 
     const sessionParams = {
       payment_method_types: ['card'],
@@ -146,10 +158,10 @@ router.post('/events/:id/checkout', async (req, res) => {
       line_items: [{
         price_data: {
           currency: 'usd',
-          unit_amount: event.price,
+          unit_amount: unitPrice,
           product_data: {
             name: `${event.event_name} Registration`,
-            description: count > 1 ? `${count} athletes × $${(event.price / 100).toFixed(2)}/person` : undefined,
+            description: count > 1 ? `${count} athletes × ${priceLabel}` : memberCodeApplied ? 'Member pricing applied' : undefined,
           },
         },
         quantity: count,

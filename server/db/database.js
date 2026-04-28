@@ -62,6 +62,9 @@ function getDb() {
     try { db.exec('ALTER TABLE events ADD COLUMN waiver_path TEXT'); } catch(e) {}
     // Migration 9: add waiver_name (typed e-signature) to registrations
     try { db.exec('ALTER TABLE registrations ADD COLUMN waiver_name TEXT'); } catch(e) {}
+    // Migration 10: add member pricing to events
+    try { db.exec('ALTER TABLE events ADD COLUMN member_code TEXT'); } catch(e) {}
+    try { db.exec('ALTER TABLE events ADD COLUMN member_price INTEGER'); } catch(e) {}
     // Migration 8: fix events incorrectly stored with use_divisions/use_age_groups=1 due to FormData string bug
     try {
       const hasMig8 = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'").get();

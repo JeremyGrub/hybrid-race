@@ -29,6 +29,8 @@ export default function CreateEvent() {
     price: '',
     use_divisions: false,
     use_age_groups: false,
+    member_code: '',
+    member_price: '',
   });
   const [waiverFile, setWaiverFile] = useState(null);
   const [errors, setErrors] = useState({});
@@ -70,6 +72,15 @@ export default function CreateEvent() {
     if (waiverFile && waiverFile.type !== 'application/pdf') {
       errs.waiver = 'Only PDF files are allowed';
     }
+    const hasCode = form.member_code.trim() !== '';
+    const hasPrice = form.member_price !== '';
+    if (hasCode !== hasPrice) {
+      errs.member_pricing = 'Both a member code and member price are required together';
+    }
+    const memberPriceNum = parseFloat(form.member_price);
+    if (hasPrice && (isNaN(memberPriceNum) || memberPriceNum < 0)) {
+      errs.member_pricing = 'Enter a valid member price';
+    }
     return errs;
   }
 
@@ -90,6 +101,10 @@ export default function CreateEvent() {
       formData.append('price', form.price || '0');
       formData.append('use_divisions', form.use_divisions ? '1' : '0');
       formData.append('use_age_groups', form.use_age_groups ? '1' : '0');
+      if (form.member_code.trim() && form.member_price !== '') {
+        formData.append('member_code', form.member_code.trim());
+        formData.append('member_price', form.member_price);
+      }
       if (waiverFile) formData.append('waiver', waiverFile);
 
       const result = await api.createEvent(formData);
@@ -258,6 +273,41 @@ export default function CreateEvent() {
                 <p className="text-xs text-gray-500">U30, 30-39, 40-49, 50-59, 60-69, 70+</p>
               </div>
             </label>
+          </div>
+
+          {/* Member pricing */}
+          <div className="pt-4 border-t border-surface-border space-y-3">
+            <div>
+              <p className="text-sm font-medium text-white">Member Pricing <span className="text-gray-500 font-normal">(optional)</span></p>
+              <p className="text-xs text-gray-500 mt-0.5">Set a discounted price for gym members. Share the code privately — members will be verified on race day.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Member Code" id="member_code" hint='e.g. "GWB2026"'>
+                <input
+                  id="member_code"
+                  className="input-field"
+                  placeholder="MEMBERS2026"
+                  value={form.member_code}
+                  onChange={e => set('member_code', e.target.value)}
+                />
+              </Field>
+              <Field label="Member Price" id="member_price">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input
+                    id="member_price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="input-field pl-7"
+                    placeholder="0.00"
+                    value={form.member_price}
+                    onChange={e => set('member_price', e.target.value)}
+                  />
+                </div>
+              </Field>
+            </div>
+            {errors.member_pricing && <p className="text-red-400 text-xs">{errors.member_pricing}</p>}
           </div>
 
           {/* Waiver upload */}

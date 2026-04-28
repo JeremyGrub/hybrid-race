@@ -89,6 +89,8 @@ router.get('/:id', (req, res) => {
     SELECT e.id, e.gym_id, e.gym_name, e.location, e.event_name, e.description,
            e.event_date, e.event_type, e.registration_link, e.price,
            e.use_divisions, e.use_age_groups, e.waiver_path,
+           e.member_price,
+           CASE WHEN e.member_code IS NOT NULL AND e.member_price IS NOT NULL THEN 1 ELSE 0 END as has_member_pricing,
            e.is_active, e.created_at,
            COUNT(r.id) as racer_count,
            g.gym_name as gym_display_name,
@@ -101,9 +103,23 @@ router.get('/:id', (req, res) => {
   `).get(req.params.id);
 
   if (!event) return res.status(404).json({ error: 'Event not found' });
-  // Don't expose stripe details publicly
+  // Never expose member_code or stripe details publicly
   const { stripe_account_id, stripe_onboarding_complete, ...publicEvent } = event;
   res.json(publicEvent);
+});
+
+// POST /api/events/:id/validate-member-code  — public, validates without exposing the code
+router.post('/:id/validate-member-code', (req, res) => {
+  const { code } = req.body;
+  if (!code) return res.status(400).json({ error: 'Code required' });
+
+  const db = getDb();
+  const event = db.prepare('SELECT member_code, member_price FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+  if (!event.member_code || event.member_price === null) return res.json({ valid: false });
+
+  const valid = event.member_code.trim().toLowerCase() === code.trim().toLowerCase();
+  res.json({ valid, member_price: valid ? event.member_price : null });
 });
 
 // GET /api/events/:id/waiver
@@ -139,7 +155,7 @@ router.post('/', gymAuth, (req, res, next) => {
   const gym = req.gym;
   const {
     event_name, location, event_date, event_type, description,
-    price, use_divisions, use_age_groups,
+    price, use_divisions, use_age_groups, member_code, member_price,
   } = req.body;
 
   if (!event_name || !location || !event_date || !event_type) {
@@ -164,11 +180,19 @@ router.post('/', gymAuth, (req, res, next) => {
   const priceInCents = Math.round(parseFloat(price || 0) * 100) || 0;
   const waiverPath = req.file ? req.file.filename : null;
 
+  const memberCodeVal = member_code ? member_code.trim() : null;
+  const memberPriceInCents = member_price !== undefined && member_price !== ''
+    ? Math.round(parseFloat(member_price) * 100)
+    : null;
+  // Only store member pricing if both code and price are provided
+  const storedMemberCode = (memberCodeVal && memberPriceInCents !== null) ? memberCodeVal : null;
+  const storedMemberPrice = (memberCodeVal && memberPriceInCents !== null) ? memberPriceInCents : null;
+
   const db = getDb();
   const result = db.prepare(`
     INSERT INTO events (gym_id, gym_name, location, event_name, description, event_date, event_type,
-      pin_hash, price, use_divisions, use_age_groups, waiver_path)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      pin_hash, price, use_divisions, use_age_groups, waiver_path, member_code, member_price)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     gym.id,
     gym.gym_name,
@@ -181,7 +205,9 @@ router.post('/', gymAuth, (req, res, next) => {
     priceInCents,
     use_divisions === '1' ? 1 : 0,
     use_age_groups === '1' ? 1 : 0,
-    waiverPath
+    waiverPath,
+    storedMemberCode,
+    storedMemberPrice
   );
 
   res.status(201).json({

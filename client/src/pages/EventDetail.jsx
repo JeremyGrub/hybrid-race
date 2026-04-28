@@ -163,6 +163,11 @@ export default function EventDetail() {
             <p className={`font-medium text-sm ${isFree ? 'text-green-400' : 'text-white'}`}>
               {isFree ? 'Free' : `${priceDisplay} per person`}
             </p>
+            {event.has_member_pricing && event.member_price !== null && (
+              <p className="text-xs text-brand mt-0.5">
+                {formatPrice(event.member_price)} for members
+              </p>
+            )}
           </div>
         </div>
 
