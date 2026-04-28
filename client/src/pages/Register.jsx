@@ -47,6 +47,7 @@ export default function Register() {
   const [leadEmail, setLeadEmail] = useState('');
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [waiverAgreed, setWaiverAgreed] = useState(false);
+  const [waiverName, setWaiverName] = useState('');
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
@@ -95,13 +96,11 @@ export default function Register() {
         else if (!/\S+@\S+\.\S+/.test(a.email)) errs[`athlete_${i}_email`] = 'Invalid email';
       }
     });
-    if (!isTeam(category) && !leadEmail) {
-      // solo: lead email is the athlete's email — already validated above
-    }
     if (isTeam(category) && !leadEmail.trim()) { errs.lead_email = 'Contact email is required'; }
     else if (isTeam(category) && leadEmail && !/\S+@\S+\.\S+/.test(leadEmail)) { errs.lead_email = 'Invalid email'; }
     if (!termsAgreed) errs.terms = 'You must agree to the Terms of Service';
     if (event?.waiver_path && !waiverAgreed) errs.waiver = 'You must agree to the event waiver';
+    if (event?.waiver_path && !waiverName.trim()) errs.waiver_name = 'Type your full name to sign the waiver';
     return errs;
   }
 
@@ -113,7 +112,6 @@ export default function Register() {
     setSubmitting(true);
     setApiError('');
     try {
-      // For solo, lead email = athlete's email
       const effectiveLeadEmail = isTeam(category) ? leadEmail : athletes[0].email;
 
       const body = {
@@ -125,6 +123,7 @@ export default function Register() {
         lead_email: effectiveLeadEmail,
         terms_agreed: true,
         waiver_agreed: waiverAgreed,
+        waiver_name: waiverName || undefined,
       };
 
       const result = await api.checkout(id, body);
@@ -341,7 +340,34 @@ export default function Register() {
             {errors.terms && <p className="text-red-400 text-xs">{errors.terms}</p>}
 
             {event.waiver_path && (
-              <>
+              <div className="space-y-3 pt-1 border-t border-surface-border">
+                <div>
+                  <p className="text-sm font-medium text-white mb-1">Event Waiver</p>
+                  <p className="text-xs text-gray-500">
+                    Please read the{' '}
+                    <a
+                      href={`/api/events/${id}/waiver`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-brand hover:text-brand-dim underline"
+                    >
+                      event waiver
+                    </a>
+                    {' '}before signing below.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="label">Full Legal Name <span className="text-gray-500 font-normal">(electronic signature)</span></label>
+                  <input
+                    className="input-field"
+                    placeholder="Jane Smith"
+                    value={waiverName}
+                    onChange={e => { setWaiverName(e.target.value); setErrors(er => ({ ...er, waiver_name: null })); }}
+                  />
+                  {errors.waiver_name && <p className="text-red-400 text-xs mt-1">{errors.waiver_name}</p>}
+                </div>
+
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -350,19 +376,11 @@ export default function Register() {
                     onChange={e => { setWaiverAgreed(e.target.checked); setErrors(er => ({ ...er, waiver: null })); }}
                   />
                   <span className="text-sm text-gray-300">
-                    I have read and agree to the{' '}
-                    <a
-                      href={`/api/events/${id}/waiver`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand hover:text-brand-dim"
-                    >
-                      event waiver
-                    </a>
+                    I have read and agree to the event waiver
                   </span>
                 </label>
                 {errors.waiver && <p className="text-red-400 text-xs">{errors.waiver}</p>}
-              </>
+              </div>
             )}
           </div>
         )}

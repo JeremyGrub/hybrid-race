@@ -60,7 +60,7 @@ router.post('/events/:id/checkout', async (req, res) => {
 
   const {
     category, division, age_group, team_name,
-    athletes, lead_email, waiver_agreed, terms_agreed,
+    athletes, lead_email, waiver_agreed, waiver_name, terms_agreed,
   } = req.body;
 
   if (!category) return res.status(400).json({ error: 'Category is required' });
@@ -72,6 +72,9 @@ router.post('/events/:id/checkout', async (req, res) => {
   if (event.waiver_path && !waiver_agreed) {
     return res.status(400).json({ error: 'You must agree to the event waiver' });
   }
+  if (event.waiver_path && (!waiver_name || !waiver_name.trim())) {
+    return res.status(400).json({ error: 'Please type your full name to sign the waiver' });
+  }
 
   const now = new Date().toISOString();
 
@@ -79,13 +82,14 @@ router.post('/events/:id/checkout', async (req, res) => {
     // Free event: create registration + racers directly
     const regResult = db.prepare(`
       INSERT INTO registrations (event_id, status, category, division, age_group, team_name, athletes, lead_email,
-        amount_paid, waiver_agreed, waiver_agreed_at, terms_agreed, terms_agreed_at)
-      VALUES (?, 'paid', ?, ?, ?, ?, ?, ?, 0, ?, ?, 1, ?)
+        amount_paid, waiver_agreed, waiver_agreed_at, waiver_name, terms_agreed, terms_agreed_at)
+      VALUES (?, 'paid', ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, 1, ?)
     `).run(
       eventId, category, division || null, age_group || null, team_name || null,
       JSON.stringify(athletes), lead_email,
       waiver_agreed ? 1 : 0,
       waiver_agreed ? now : null,
+      waiver_name ? waiver_name.trim() : null,
       now
     );
 
@@ -100,13 +104,14 @@ router.post('/events/:id/checkout', async (req, res) => {
   // Paid event: create pending registration + Stripe Checkout session
   const regResult = db.prepare(`
     INSERT INTO registrations (event_id, status, category, division, age_group, team_name, athletes, lead_email,
-      waiver_agreed, waiver_agreed_at, terms_agreed, terms_agreed_at)
-    VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+      waiver_agreed, waiver_agreed_at, waiver_name, terms_agreed, terms_agreed_at)
+    VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `).run(
     eventId, category, division || null, age_group || null, team_name || null,
     JSON.stringify(athletes), lead_email,
     waiver_agreed ? 1 : 0,
     waiver_agreed ? now : null,
+    waiver_name ? waiver_name.trim() : null,
     now
   );
 
