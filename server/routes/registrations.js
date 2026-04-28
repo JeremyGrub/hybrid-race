@@ -6,9 +6,11 @@ const router = express.Router();
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 const DOUBLES_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed'];
+const ATHLETE_COUNT = { 'Doubles Men': 2, 'Doubles Women': 2, 'Doubles Mixed': 2, 'Relay': 4 };
 
 function isDoubles(cat) { return DOUBLES_CATEGORIES.includes(cat); }
 function isTeam(cat) { return DOUBLES_CATEGORIES.includes(cat) || cat === 'Relay'; }
+function athleteCount(cat) { return ATHLETE_COUNT[cat] || 1; }
 
 function createRacersFromRegistration(db, registration, event) {
   const athletes = JSON.parse(registration.athletes);
@@ -133,6 +135,8 @@ router.post('/events/:id/checkout', async (req, res) => {
   try {
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
+    const count = athleteCount(category);
+
     const sessionParams = {
       payment_method_types: ['card'],
       mode: 'payment',
@@ -140,9 +144,12 @@ router.post('/events/:id/checkout', async (req, res) => {
         price_data: {
           currency: 'usd',
           unit_amount: event.price,
-          product_data: { name: `${event.event_name} Registration` },
+          product_data: {
+            name: `${event.event_name} Registration`,
+            description: count > 1 ? `${count} athletes × $${(event.price / 100).toFixed(2)}/person` : undefined,
+          },
         },
-        quantity: 1,
+        quantity: count,
       }],
       allow_promotion_codes: true,
       success_url: `${APP_URL}/register/success?session_id={CHECKOUT_SESSION_ID}`,

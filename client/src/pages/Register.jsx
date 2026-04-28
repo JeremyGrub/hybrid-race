@@ -31,6 +31,11 @@ function formatPrice(cents) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+function totalPrice(cents, count) {
+  if (!cents || cents === 0) return null;
+  return `$${((cents * count) / 100).toFixed(2)}`;
+}
+
 function emptyAthlete() { return { first_name: '', last_name: '', email: '' }; }
 
 export default function Register() {
@@ -146,7 +151,9 @@ export default function Register() {
   if (!event) return <div className="text-center py-32 text-gray-400">Event not found.</div>;
 
   const types = parseTypes(event.event_type);
-  const priceDisplay = formatPrice(event.price);
+  const perPersonDisplay = formatPrice(event.price);
+  const count = category ? (ATHLETE_COUNT[category] || 1) : 1;
+  const totalDisplay = totalPrice(event.price, count);
   const teamMode = isTeam(category);
   const athleteCount = teamMode ? (ATHLETE_COUNT[category] || 2) : 1;
 
@@ -159,10 +166,10 @@ export default function Register() {
         </Link>
         <h1 className="font-display text-3xl font-bold uppercase tracking-wide mb-1">{event.event_name}</h1>
         <p className="text-gray-400 text-sm">{event.gym_name} · {event.location} · {formatDate(event.event_date)}</p>
-        {priceDisplay && (
-          <p className="text-brand font-semibold text-lg mt-2">{priceDisplay} per registration</p>
+        {perPersonDisplay && (
+          <p className="text-brand font-semibold text-lg mt-2">{perPersonDisplay} <span className="text-gray-400 font-normal text-sm">per person</span></p>
         )}
-        {!priceDisplay && (
+        {!perPersonDisplay && (
           <p className="text-green-400 font-semibold text-sm mt-2">Free registration</p>
         )}
       </div>
@@ -393,13 +400,20 @@ export default function Register() {
         )}
 
         {category && (
-          <button type="submit" disabled={submitting || !category} className="btn-primary w-full py-3 text-base">
-            {submitting
-              ? 'Processing...'
-              : priceDisplay
-                ? `Register & Pay ${priceDisplay}`
-                : 'Register Free'}
-          </button>
+          <div className="space-y-2">
+            {totalDisplay && count > 1 && (
+              <p className="text-center text-sm text-gray-400">
+                {count} athletes × {perPersonDisplay} = <span className="text-white font-semibold">{totalDisplay} total</span>
+              </p>
+            )}
+            <button type="submit" disabled={submitting || !category} className="btn-primary w-full py-3 text-base">
+              {submitting
+                ? 'Processing...'
+                : totalDisplay
+                  ? `Register & Pay ${totalDisplay}`
+                  : 'Register Free'}
+            </button>
+          </div>
         )}
       </form>
     </div>
