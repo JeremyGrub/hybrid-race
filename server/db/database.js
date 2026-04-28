@@ -60,6 +60,18 @@ function getDb() {
     try { db.exec('ALTER TABLE events ADD COLUMN use_age_groups INTEGER NOT NULL DEFAULT 0'); } catch(e) {}
     // Migration 7: add waiver_path to events
     try { db.exec('ALTER TABLE events ADD COLUMN waiver_path TEXT'); } catch(e) {}
+    // Migration 8: fix events incorrectly stored with use_divisions/use_age_groups=1 due to FormData string bug
+    try {
+      const hasMig8 = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'").get();
+      if (!hasMig8) {
+        db.exec("CREATE TABLE _migrations (name TEXT PRIMARY KEY)");
+      }
+      const alreadyRan = db.prepare("SELECT name FROM _migrations WHERE name='fix_divisions_flags'").get();
+      if (!alreadyRan) {
+        db.exec('UPDATE events SET use_divisions = 0, use_age_groups = 0');
+        db.prepare("INSERT INTO _migrations (name) VALUES (?)").run('fix_divisions_flags');
+      }
+    } catch(e) { console.error('Migration 8 error:', e.message); }
   }
   return db;
 }
