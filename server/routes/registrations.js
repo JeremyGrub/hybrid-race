@@ -1,0 +1,224 @@
+const express = require('express');
+const { getDb } = require('../db/database');
+const { gymAuth } = require('../middleware/gymAuth');
+
+const router = express.Router();
+
+const APP_URL = process.env.APP_URL || 'http://localhost:5173';
+const TEAM_CATEGORIES = ['Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
+
+function isTeam(cat) { return TEAM_CATEGORIES.includes(cat); }
+
+function createRacersFromRegistration(db, registration, event) {
+  const athletes = JSON.parse(registration.athletes);
+  const insertRacer = db.prepare(`
+    INSERT INTO racers (event_id, first_name, last_name, team_name, category, division, age_group)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  if (isTeam(registration.category)) {
+    // For team categories, insert one racer per athlete
+    for (const athlete of athletes) {
+      insertRacer.run(
+        event.id,
+        athlete.first_name || null,
+        athlete.last_name || null,
+        registration.team_name || null,
+        registration.category,
+        registration.division || null,
+        registration.age_group || null
+      );
+    }
+  } else {
+    // Solo: single athlete
+    const athlete = athletes[0] || {};
+    insertRacer.run(
+      event.id,
+      athlete.first_name || null,
+      athlete.last_name || null,
+      null,
+      registration.category,
+      registration.division || null,
+      registration.age_group || null
+    );
+  }
+}
+
+// POST /api/events/:id/checkout
+router.post('/events/:id/checkout', async (req, res) => {
+  const eventId = req.params.id;
+  const db = getDb();
+
+  const event = db.prepare(`
+    SELECT e.*, g.stripe_account_id, g.stripe_onboarding_complete, g.gym_name as gym_display_name
+    FROM events e
+    LEFT JOIN gyms g ON g.id = e.gym_id
+    WHERE e.id = ? AND e.is_active = 1
+  `).get(eventId);
+
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+
+  const {
+    category, division, age_group, team_name,
+    athletes, lead_email, waiver_agreed, terms_agreed,
+  } = req.body;
+
+  if (!category) return res.status(400).json({ error: 'Category is required' });
+  if (!lead_email) return res.status(400).json({ error: 'Lead email is required' });
+  if (!athletes || !Array.isArray(athletes) || athletes.length === 0) {
+    return res.status(400).json({ error: 'At least one athlete is required' });
+  }
+  if (!terms_agreed) return res.status(400).json({ error: 'You must agree to the Terms of Service' });
+  if (event.waiver_path && !waiver_agreed) {
+    return res.status(400).json({ error: 'You must agree to the event waiver' });
+  }
+
+  const now = new Date().toISOString();
+
+  if (!event.price || event.price === 0) {
+    // Free event: create registration + racers directly
+    const regResult = db.prepare(`
+      INSERT INTO registrations (event_id, status, category, division, age_group, team_name, athletes, lead_email,
+        amount_paid, waiver_agreed, waiver_agreed_at, terms_agreed, terms_agreed_at)
+      VALUES (?, 'paid', ?, ?, ?, ?, ?, ?, 0, ?, ?, 1, ?)
+    `).run(
+      eventId, category, division || null, age_group || null, team_name || null,
+      JSON.stringify(athletes), lead_email,
+      waiver_agreed ? 1 : 0,
+      waiver_agreed ? now : null,
+      now
+    );
+
+    const registration = db.prepare('SELECT * FROM registrations WHERE id = ?')
+      .get(Number(regResult.lastInsertRowid));
+
+    createRacersFromRegistration(db, registration, event);
+
+    return res.json({ success: true, free: true, registration_id: registration.id });
+  }
+
+  // Paid event: create pending registration + Stripe Checkout session
+  const regResult = db.prepare(`
+    INSERT INTO registrations (event_id, status, category, division, age_group, team_name, athletes, lead_email,
+      waiver_agreed, waiver_agreed_at, terms_agreed, terms_agreed_at)
+    VALUES (?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  `).run(
+    eventId, category, division || null, age_group || null, team_name || null,
+    JSON.stringify(athletes), lead_email,
+    waiver_agreed ? 1 : 0,
+    waiver_agreed ? now : null,
+    now
+  );
+
+  const registrationId = Number(regResult.lastInsertRowid);
+
+  try {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+
+    const sessionParams = {
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          unit_amount: event.price,
+          product_data: { name: `${event.event_name} Registration` },
+        },
+        quantity: 1,
+      }],
+      allow_promotion_codes: true,
+      success_url: `${APP_URL}/register/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/events/${eventId}`,
+      metadata: {
+        registration_id: String(registrationId),
+        event_id: String(eventId),
+      },
+      customer_email: lead_email,
+    };
+
+    // Only add transfer_data if gym has completed Stripe onboarding
+    if (event.stripe_account_id && event.stripe_onboarding_complete) {
+      sessionParams.payment_intent_data = {
+        application_fee_amount: 0,
+        transfer_data: { destination: event.stripe_account_id },
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    db.prepare('UPDATE registrations SET stripe_session_id = ? WHERE id = ?')
+      .run(session.id, registrationId);
+
+    return res.json({ url: session.url });
+  } catch(e) {
+    console.error('Stripe checkout error:', e.message);
+    // Clean up the pending registration on Stripe error
+    db.prepare('DELETE FROM registrations WHERE id = ?').run(registrationId);
+    return res.status(500).json({ error: 'Failed to create checkout session' });
+  }
+});
+
+// POST /api/webhooks/stripe  (raw body, registered in index.js)
+router.post('/webhooks/stripe', async (req, res) => {
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+  } catch(e) {
+    console.error('Webhook signature error:', e.message);
+    return res.status(400).json({ error: `Webhook error: ${e.message}` });
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+    const registrationId = session.metadata?.registration_id;
+
+    const db = getDb();
+    let registration;
+
+    if (registrationId) {
+      registration = db.prepare('SELECT * FROM registrations WHERE id = ?').get(registrationId);
+    }
+    if (!registration) {
+      registration = db.prepare('SELECT * FROM registrations WHERE stripe_session_id = ?').get(session.id);
+    }
+
+    if (registration && registration.status !== 'paid') {
+      db.prepare(
+        'UPDATE registrations SET status = \'paid\', amount_paid = ? WHERE id = ?'
+      ).run(session.amount_total || 0, registration.id);
+
+      const ev = db.prepare('SELECT * FROM events WHERE id = ?').get(registration.event_id);
+      if (ev) {
+        const updatedReg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(registration.id);
+        createRacersFromRegistration(db, updatedReg, ev);
+      }
+    }
+  }
+
+  res.json({ received: true });
+});
+
+// GET /api/events/:id/registrations (gym auth, gym must own event)
+router.get('/events/:id/registrations', gymAuth, (req, res) => {
+  const db = getDb();
+  const event = db.prepare('SELECT id, gym_id FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+  if (event.gym_id !== req.gym.id) return res.status(403).json({ error: 'Access denied' });
+
+  const registrations = db.prepare(`
+    SELECT * FROM registrations WHERE event_id = ? ORDER BY created_at DESC
+  `).all(req.params.id);
+
+  const parsed = registrations.map(r => ({
+    ...r,
+    athletes: (() => { try { return JSON.parse(r.athletes); } catch { return []; } })(),
+  }));
+
+  res.json(parsed);
+});
+
+module.exports = router;

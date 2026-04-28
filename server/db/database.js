@@ -49,6 +49,17 @@ function getDb() {
       db.exec('PRAGMA foreign_keys = ON');
       console.error('Migration 2 error:', e.message);
     }
+
+    // Migration 3: add gym_id to events
+    try { db.exec('ALTER TABLE events ADD COLUMN gym_id INTEGER REFERENCES gyms(id)'); } catch(e) {}
+    // Migration 4: add price to events
+    try { db.exec('ALTER TABLE events ADD COLUMN price INTEGER NOT NULL DEFAULT 0'); } catch(e) {}
+    // Migration 5: add use_divisions to events
+    try { db.exec('ALTER TABLE events ADD COLUMN use_divisions INTEGER NOT NULL DEFAULT 0'); } catch(e) {}
+    // Migration 6: add use_age_groups to events
+    try { db.exec('ALTER TABLE events ADD COLUMN use_age_groups INTEGER NOT NULL DEFAULT 0'); } catch(e) {}
+    // Migration 7: add waiver_path to events
+    try { db.exec('ALTER TABLE events ADD COLUMN waiver_path TEXT'); } catch(e) {}
   }
   return db;
 }

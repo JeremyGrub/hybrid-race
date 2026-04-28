@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, getToken, getStoredGym } from '../api/client';
 import Leaderboard from '../components/results/Leaderboard';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
@@ -19,25 +19,30 @@ function displayName(racer) {
 }
 
 function formatTimeInput(raw) {
-  // Keep only digits, max 6 (HHMMSS)
   const digits = raw.replace(/\D/g, '').slice(0, 6);
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}:${digits.slice(2)}`;
   return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4)}`;
 }
 
+function StatusBadge({ status }) {
+  const colors = {
+    paid: 'bg-green-500/15 text-green-400 border-green-500/30',
+    pending: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+    cancelled: 'bg-red-500/15 text-red-400 border-red-500/30',
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colors[status] || colors.pending}`}>
+      {status}
+    </span>
+  );
+}
+
 function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, saving, saved, locked }) {
   const inputRef = useRef(null);
+  useEffect(() => { if (!locked && inputRef.current) inputRef.current.focus(); }, [locked]);
 
-  // When unlocked, focus the input immediately
-  useEffect(() => {
-    if (!locked && inputRef.current) inputRef.current.focus();
-  }, [locked]);
-
-  function handleChange(e) {
-    const raw = e.target.value;
-    onChange(formatTimeInput(raw));
-  }
+  function handleChange(e) { onChange(formatTimeInput(e.target.value)); }
 
   function handleKeyDown(e) {
     const input = e.target;
@@ -50,22 +55,16 @@ function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, sa
       }
     }
     if (e.key === 'Enter') onSave();
-    if (e.key === 'Escape') onEdit(false); // cancel → re-lock without saving
+    if (e.key === 'Escape') onEdit(false);
   }
 
-  // Locked display
   if (locked) {
     const display = dnf ? 'DNF' : dns ? 'DNS' : value || '—';
     const displayColor = dnf ? 'text-red-400' : dns ? 'text-gray-500' : value ? 'text-white' : 'text-gray-600';
     return (
       <div className="flex items-center gap-3">
-        <span className={`font-display text-lg font-semibold w-24 ${displayColor}`}>
-          {display}
-        </span>
-        <button
-          onClick={() => onEdit(true)}
-          className="text-xs text-gray-500 hover:text-brand transition-colors flex items-center gap-1"
-        >
+        <span className={`font-display text-lg font-semibold w-24 ${displayColor}`}>{display}</span>
+        <button onClick={() => onEdit(true)} className="text-xs text-gray-500 hover:text-brand transition-colors flex items-center gap-1">
           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
@@ -75,7 +74,6 @@ function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, sa
     );
   }
 
-  // Unlocked / editing display
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <input
@@ -91,23 +89,17 @@ function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, sa
         className="input-field w-32 font-mono text-center"
       />
       <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
-        <input type="checkbox" checked={!!dnf}
-          onChange={e => { onDnf(e.target.checked); if (e.target.checked) onDns(false); }}
-          className="accent-red-500" />
+        <input type="checkbox" checked={!!dnf} onChange={e => { onDnf(e.target.checked); if (e.target.checked) onDns(false); }} className="accent-red-500" />
         DNF
       </label>
       <label className="flex items-center gap-1 text-xs text-gray-400 cursor-pointer select-none">
-        <input type="checkbox" checked={!!dns}
-          onChange={e => { onDns(e.target.checked); if (e.target.checked) onDnf(false); }}
-          className="accent-gray-500" />
+        <input type="checkbox" checked={!!dns} onChange={e => { onDns(e.target.checked); if (e.target.checked) onDnf(false); }} className="accent-gray-500" />
         DNS
       </label>
       <button
         onClick={onSave}
         disabled={saving}
-        className={`py-1.5 text-xs font-semibold px-3 rounded-lg border transition-all duration-200 ${
-          saved ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'btn-primary'
-        }`}
+        className={`py-1.5 text-xs font-semibold px-3 rounded-lg border transition-all duration-200 ${saved ? 'bg-green-500/15 text-green-400 border-green-500/30' : 'btn-primary'}`}
       >
         {saving ? '...' : saved ? '✓ Saved' : 'Save'}
       </button>
@@ -118,7 +110,9 @@ function TimeInput({ value, onChange, onSave, onEdit, dnf, dns, onDnf, onDns, sa
 export default function ManageEvent() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const gym = getStoredGym();
 
+  // PIN state (still needed for Enter Times tab — race-day volunteers)
   const [pin, setPin] = useState(() => sessionStorage.getItem(`event-pin-${id}`) || '');
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
@@ -127,38 +121,38 @@ export default function ManageEvent() {
 
   const [event, setEvent] = useState(null);
   const [racers, setRacers] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('racers');
+  const [activeTab, setActiveTab] = useState('registrations');
 
-  // Add racer modal
   const [addModal, setAddModal] = useState(false);
   const [addForm, setAddForm] = useState({ first_name: '', last_name: '', team_name: '', category: 'Solo Men', division: '', age_group: '', bib_number: '' });
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
 
-  // Delete racer confirm
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Edit event modal
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [editError, setEditError] = useState('');
   const [editing, setEditing] = useState(false);
 
-  // Delete event modal
   const [deleteEventModal, setDeleteEventModal] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
 
-  // Time entry state: { [racerId]: { time, dnf, dns, saving } }
   const [timeState, setTimeState] = useState({});
+
+  // Auth check
+  useEffect(() => {
+    if (!getToken()) navigate('/login', { replace: true });
+  }, [navigate]);
 
   const loadData = useCallback(async () => {
     try {
       const [ev, rc] = await Promise.all([api.getEvent(id), api.getRacers(id)]);
       setEvent(ev);
       setRacers(rc);
-      // Initialize time state from existing results
       const ts = {};
       rc.forEach(r => {
         ts[r.id] = {
@@ -171,16 +165,22 @@ export default function ManageEvent() {
         };
       });
       setTimeState(ts);
-    } catch {
-      //
+
+      // Load registrations if gym owns this event
+      if (getToken()) {
+        try {
+          const regs = await api.getRegistrations(id);
+          setRegistrations(regs);
+        } catch { /* not owner or no regs */ }
+      }
+    } catch (err) {
+      if (err.message.includes('401')) navigate('/login', { replace: true });
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, navigate]);
 
-  useEffect(() => {
-    if (pinVerified) loadData();
-  }, [pinVerified, loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   async function verifyPin(e) {
     e.preventDefault();
@@ -208,7 +208,6 @@ export default function ManageEvent() {
     const isTeam = isTeamCategory(addForm.category);
     if (isTeam && !addForm.team_name.trim()) { setAddError('Team name required'); return; }
     if (!isTeam && !addForm.first_name.trim() && !addForm.last_name.trim()) { setAddError('Name required'); return; }
-
     setAdding(true);
     try {
       await api.addRacer(id, {
@@ -243,20 +242,15 @@ export default function ManageEvent() {
 
   function parseEventTypes(raw) {
     if (!raw) return [];
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch { return [raw]; }
+    try { const p = JSON.parse(raw); return Array.isArray(p) ? p : [p]; } catch { return [raw]; }
   }
 
   function openEditModal() {
     setEditForm({
       event_name: event?.event_name || '',
-      gym_name: event?.gym_name || '',
       location: event?.location || '',
       event_date: event?.event_date || '',
       description: event?.description || '',
-      registration_link: event?.registration_link || '',
       event_types: parseEventTypes(event?.event_type),
     });
     setEditError('');
@@ -278,13 +272,11 @@ export default function ManageEvent() {
     try {
       await api.updateEvent(id, {
         event_name: editForm.event_name,
-        gym_name: editForm.gym_name,
         location: editForm.location,
         event_date: editForm.event_date,
         description: editForm.description || null,
-        registration_link: editForm.registration_link || null,
         event_type: JSON.stringify(editForm.event_types),
-      }, pin);
+      });
       setEditModal(false);
       await loadData();
     } catch (err) {
@@ -297,8 +289,8 @@ export default function ManageEvent() {
   async function handleDeleteEvent() {
     setDeletingEvent(true);
     try {
-      await api.deleteEvent(id, pin);
-      navigate('/events');
+      await api.deleteEvent(id);
+      navigate('/dashboard');
     } catch {
       setDeletingEvent(false);
     }
@@ -328,39 +320,18 @@ export default function ManageEvent() {
     }
   }
 
-  // PIN gate
-  if (!pinVerified) {
-    return (
-      <div className="max-w-md mx-auto px-4 py-20">
-        <div className="card p-8">
-          <h1 className="font-display text-2xl font-bold uppercase tracking-wide mb-2">Manage Event</h1>
-          <p className="text-gray-400 text-sm mb-6">Enter your event PIN to continue.</p>
-          <form onSubmit={verifyPin} className="space-y-4">
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              className="input-field text-center tracking-widest text-xl"
-              placeholder="••••"
-              value={pinInput}
-              onChange={e => { setPinInput(e.target.value); setPinError(''); }}
-              autoFocus
-            />
-            {pinError && <p className="text-red-400 text-xs">{pinError}</p>}
-            <button type="submit" disabled={verifying || !pinInput} className="btn-primary w-full">
-              {verifying ? 'Verifying...' : 'Access Event'}
-            </button>
-            <Link to="/events" className="btn-ghost w-full text-center block">Back to Events</Link>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   if (loading) return <div className="flex justify-center py-32"><Spinner size="lg" /></div>;
   if (!event) return <div className="text-center py-32 text-gray-400">Event not found.</div>;
 
-  const isTeam = isTeamCategory(event.event_type);
+  // Check ownership
+  const isOwner = gym && event.gym_id === gym.id;
+
+  const tabs = [
+    { key: 'registrations', label: 'Registrations' },
+    { key: 'racers', label: 'Racers' },
+    { key: 'times', label: 'Enter Times' },
+    { key: 'results', label: 'Results' },
+  ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10">
@@ -368,34 +339,98 @@ export default function ManageEvent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link to={`/events/${id}`} className="text-gray-500 hover:text-gray-300 text-xs">
-              ← Back to event
+            <Link to={isOwner ? '/dashboard' : `/events/${id}`} className="text-gray-500 hover:text-gray-300 text-xs">
+              {isOwner ? '← Dashboard' : '← Back to event'}
             </Link>
           </div>
           <h1 className="font-display text-3xl font-bold uppercase tracking-wide">{event.event_name}</h1>
           <p className="text-gray-400 text-sm mt-0.5">{event.gym_name} · {event.location}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={openEditModal} className="btn-secondary">Edit Event</button>
-          <button onClick={() => setDeleteEventModal(true)} className="btn-danger">Delete</button>
-          <button onClick={() => setAddModal(true)} className="btn-primary">+ Add Racer</button>
-        </div>
+        {isOwner && (
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={openEditModal} className="btn-secondary">Edit Event</button>
+            <button onClick={() => setDeleteEventModal(true)} className="btn-danger">Delete</button>
+            <button onClick={() => setAddModal(true)} className="btn-primary">+ Add Racer</button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-surface rounded-xl p-1 border border-surface-border w-fit">
-        {['racers', 'times', 'results'].map(tab => (
+      <div className="flex gap-1 mb-6 bg-surface rounded-xl p-1 border border-surface-border w-fit overflow-x-auto">
+        {tabs.map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
-              activeTab === tab ? 'bg-brand text-black' : 'text-gray-400 hover:text-white'
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.key ? 'bg-brand text-black' : 'text-gray-400 hover:text-white'
             }`}
           >
-            {tab === 'times' ? 'Enter Times' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab.label}
+            {tab.key === 'registrations' && registrations.length > 0 && (
+              <span className="ml-1.5 bg-brand/20 text-brand text-xs px-1.5 py-0.5 rounded-full">
+                {registrations.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {/* Registrations tab */}
+      {activeTab === 'registrations' && (
+        <div className="card overflow-hidden">
+          {registrations.length === 0 ? (
+            <div className="text-center py-16 text-gray-500">
+              <p className="mb-3">No registrations yet.</p>
+              <p className="text-xs text-gray-600">Share the registration link to get athletes signed up.</p>
+              <div className="mt-4">
+                <Link to={`/events/${id}/register`} className="btn-secondary text-sm">
+                  View Registration Page
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-border">
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Athlete(s)</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden md:table-cell">Email</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Status</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden md:table-cell">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {registrations.map(reg => {
+                  const athletes = Array.isArray(reg.athletes) ? reg.athletes : [];
+                  const nameDisplay = reg.team_name
+                    ? reg.team_name
+                    : athletes.map(a => `${a.first_name || ''} ${a.last_name || ''}`.trim()).join(', ') || '—';
+                  return (
+                    <tr key={reg.id} className="border-b border-surface-border/50 hover:bg-surface-raised/30 transition-colors">
+                      <td className="py-3.5 px-4 font-medium">
+                        <div>{nameDisplay}</div>
+                        {reg.team_name && athletes.length > 0 && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {athletes.map(a => `${a.first_name || ''} ${a.last_name || ''}`.trim()).join(' · ')}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-4 hidden sm:table-cell">
+                        <CategoryBadge category={reg.category} />
+                      </td>
+                      <td className="py-3.5 px-4 hidden md:table-cell text-gray-400 text-xs">{reg.lead_email}</td>
+                      <td className="py-3.5 px-4"><StatusBadge status={reg.status} /></td>
+                      <td className="py-3.5 px-4 hidden md:table-cell text-gray-400 text-xs">
+                        {reg.amount_paid != null ? `$${(reg.amount_paid / 100).toFixed(2)}` : reg.status === 'paid' ? 'Free' : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* Racers tab */}
       {activeTab === 'racers' && (
@@ -403,7 +438,7 @@ export default function ManageEvent() {
           {racers.length === 0 ? (
             <div className="text-center py-16 text-gray-500">
               <p className="mb-3">No racers yet.</p>
-              <button onClick={() => setAddModal(true)} className="btn-primary">Add First Racer</button>
+              {isOwner && <button onClick={() => setAddModal(true)} className="btn-primary">Add First Racer</button>}
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -411,9 +446,9 @@ export default function ManageEvent() {
                 <tr className="border-b border-surface-border">
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Name / Team</th>
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Division / Age Group</th>
+                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Division / Age</th>
                   <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden md:table-cell">Bib</th>
-                  <th className="py-3 px-4 w-12" />
+                  {isOwner && <th className="py-3 px-4 w-12" />}
                 </tr>
               </thead>
               <tbody>
@@ -428,17 +463,19 @@ export default function ManageEvent() {
                       </div>
                     </td>
                     <td className="py-3.5 px-4 hidden md:table-cell text-gray-500">{r.bib_number || '—'}</td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setDeleteId(r.id)}
-                        className="text-gray-600 hover:text-red-400 transition-colors"
-                        title="Remove racer"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-                    </td>
+                    {isOwner && (
+                      <td className="py-3.5 px-4 text-right">
+                        <button
+                          onClick={() => setDeleteId(r.id)}
+                          className="text-gray-600 hover:text-red-400 transition-colors"
+                          title="Remove racer"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -447,52 +484,77 @@ export default function ManageEvent() {
         </div>
       )}
 
-      {/* Time entry tab */}
+      {/* Enter Times tab — PIN auth for race-day volunteers */}
       {activeTab === 'times' && (
-        <div className="card overflow-hidden">
-          {racers.length === 0 ? (
-            <div className="text-center py-16 text-gray-500">Add racers first to enter times.</div>
+        <>
+          {!pinVerified ? (
+            <div className="card p-8 max-w-sm mx-auto">
+              <h2 className="font-display text-xl font-bold uppercase tracking-wide mb-1">Race-Day Time Entry</h2>
+              <p className="text-gray-400 text-sm mb-6">Enter your event PIN to enter finish times.</p>
+              <form onSubmit={verifyPin} className="space-y-4">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="input-field text-center tracking-widest text-xl"
+                  placeholder="••••••"
+                  value={pinInput}
+                  onChange={e => { setPinInput(e.target.value); setPinError(''); }}
+                  autoFocus
+                />
+                {pinError && <p className="text-red-400 text-xs">{pinError}</p>}
+                <button type="submit" disabled={verifying || !pinInput} className="btn-primary w-full">
+                  {verifying ? 'Verifying...' : 'Access Time Entry'}
+                </button>
+              </form>
+            </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-surface-border">
-                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Name / Team</th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Time</th>
-                </tr>
-              </thead>
-              <tbody>
-                {racers.map(r => {
-                  const ts = timeState[r.id] || { time: '', dnf: false, dns: false, saving: false };
-                  return (
-                    <tr key={r.id} className="border-b border-surface-border/50">
-                      <td className="py-3 px-4 font-medium">{displayName(r)}</td>
-                      <td className="py-3 px-4 hidden sm:table-cell"><CategoryBadge category={r.category} /></td>
-                      <td className="py-3 px-4">
-                        <TimeInput
-                          value={ts.time}
-                          onChange={v => updateTime(r.id, 'time', v)}
-                          onSave={() => saveTime(r)}
-                          onEdit={unlock => updateTime(r.id, 'locked', !unlock)}
-                          dnf={ts.dnf}
-                          dns={ts.dns}
-                          onDnf={v => updateTime(r.id, 'dnf', v)}
-                          onDns={v => updateTime(r.id, 'dns', v)}
-                          saving={ts.saving}
-                          saved={ts.saved}
-                          locked={ts.locked}
-                        />
-                      </td>
+            <div className="card overflow-hidden">
+              {racers.length === 0 ? (
+                <div className="text-center py-16 text-gray-500">Add racers first to enter times.</div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-border">
+                      <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Name / Team</th>
+                      <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                      <th className="text-left py-3 px-4 text-xs text-gray-400 uppercase tracking-wider">Time</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {racers.map(r => {
+                      const ts = timeState[r.id] || { time: '', dnf: false, dns: false, saving: false };
+                      return (
+                        <tr key={r.id} className="border-b border-surface-border/50">
+                          <td className="py-3 px-4 font-medium">{displayName(r)}</td>
+                          <td className="py-3 px-4 hidden sm:table-cell"><CategoryBadge category={r.category} /></td>
+                          <td className="py-3 px-4">
+                            <TimeInput
+                              value={ts.time}
+                              onChange={v => updateTime(r.id, 'time', v)}
+                              onSave={() => saveTime(r)}
+                              onEdit={unlock => updateTime(r.id, 'locked', !unlock)}
+                              dnf={ts.dnf}
+                              dns={ts.dns}
+                              onDnf={v => updateTime(r.id, 'dnf', v)}
+                              onDns={v => updateTime(r.id, 'dns', v)}
+                              saving={ts.saving}
+                              saved={ts.saved}
+                              locked={ts.locked}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* Results preview tab */}
+      {/* Results tab */}
       {activeTab === 'results' && (
         <div className="card p-6">
           <h2 className="font-display text-xl font-bold uppercase tracking-wide mb-5">Live Results</h2>
@@ -500,169 +562,132 @@ export default function ManageEvent() {
         </div>
       )}
 
-      {/* Add racer modal */}
-      <Modal open={addModal} onClose={() => { setAddModal(false); setAddError(''); }} title="Add Racer">
-        <form onSubmit={handleAddRacer} className="space-y-4">
-          <div>
-            <label className="label">Category</label>
-            <select
-              className="input-field"
-              value={addForm.category}
-              onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}
-            >
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          {isTeamCategory(addForm.category) ? (
-            <div>
-              <label className="label">Team Name</label>
-              <input
-                className="input-field"
-                placeholder="Team name"
-                value={addForm.team_name}
-                onChange={e => setAddForm(f => ({ ...f, team_name: e.target.value }))}
-              />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
+      {/* Modals — only shown to owner */}
+      {isOwner && (
+        <>
+          <Modal open={addModal} onClose={() => { setAddModal(false); setAddError(''); }} title="Add Racer">
+            <form onSubmit={handleAddRacer} className="space-y-4">
               <div>
-                <label className="label">First Name</label>
-                <input
-                  className="input-field"
-                  placeholder="First"
-                  value={addForm.first_name}
-                  onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))}
-                />
+                <label className="label">Category</label>
+                <select className="input-field" value={addForm.category} onChange={e => setAddForm(f => ({ ...f, category: e.target.value }))}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              {isTeamCategory(addForm.category) ? (
+                <div>
+                  <label className="label">Team Name</label>
+                  <input className="input-field" placeholder="Team name" value={addForm.team_name} onChange={e => setAddForm(f => ({ ...f, team_name: e.target.value }))} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">First Name</label>
+                    <input className="input-field" placeholder="First" value={addForm.first_name} onChange={e => setAddForm(f => ({ ...f, first_name: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="label">Last Name</label>
+                    <input className="input-field" placeholder="Last" value={addForm.last_name} onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))} />
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Division (optional)</label>
+                  <select className="input-field" value={addForm.division} onChange={e => setAddForm(f => ({ ...f, division: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Age Group (optional)</label>
+                  <select className="input-field" value={addForm.age_group} onChange={e => setAddForm(f => ({ ...f, age_group: e.target.value }))}>
+                    <option value="">— None —</option>
+                    {AGE_GROUPS.map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
-                <label className="label">Last Name</label>
-                <input
-                  className="input-field"
-                  placeholder="Last"
-                  value={addForm.last_name}
-                  onChange={e => setAddForm(f => ({ ...f, last_name: e.target.value }))}
-                />
+                <label className="label">Bib # (optional)</label>
+                <input className="input-field" placeholder="42" value={addForm.bib_number} onChange={e => setAddForm(f => ({ ...f, bib_number: e.target.value }))} />
               </div>
-            </div>
-          )}
+              {!pinVerified && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
+                  <p className="text-yellow-400 text-xs">You need to enter your PIN (in the Enter Times tab) to add/remove racers manually.</p>
+                </div>
+              )}
+              {addError && <p className="text-red-400 text-xs">{addError}</p>}
+              <button type="submit" disabled={adding} className="btn-primary w-full">
+                {adding ? 'Adding...' : 'Add Racer'}
+              </button>
+            </form>
+          </Modal>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Division (optional)</label>
-              <select
-                className="input-field"
-                value={addForm.division}
-                onChange={e => setAddForm(f => ({ ...f, division: e.target.value }))}
-              >
-                <option value="">— None —</option>
-                {DIVISIONS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Age Group (optional)</label>
-              <select
-                className="input-field"
-                value={addForm.age_group}
-                onChange={e => setAddForm(f => ({ ...f, age_group: e.target.value }))}
-              >
-                <option value="">— None —</option>
-                {AGE_GROUPS.map(a => <option key={a} value={a}>{a}</option>)}
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="label">Bib # (optional)</label>
-            <input
-              className="input-field"
-              placeholder="42"
-              value={addForm.bib_number}
-              onChange={e => setAddForm(f => ({ ...f, bib_number: e.target.value }))}
-            />
-          </div>
+          <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Event">
+            <form onSubmit={handleEditEvent} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="label">Event Name</label>
+                  <input className="input-field" value={editForm.event_name || ''} onChange={e => setEditForm(f => ({ ...f, event_name: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="label">Location</label>
+                  <input className="input-field" value={editForm.location || ''} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} required />
+                </div>
+                <div>
+                  <label className="label">Event Date</label>
+                  <input type="date" className="input-field" value={editForm.event_date || ''} onChange={e => setEditForm(f => ({ ...f, event_date: e.target.value }))} required />
+                </div>
+                <div className="col-span-2">
+                  <label className="label">Description (optional)</label>
+                  <textarea className="input-field resize-none" rows={2} value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <label className="label">Event Types</label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map(t => (
+                    <button key={t} type="button"
+                      onClick={() => toggleEditType(t)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        (editForm.event_types || []).includes(t)
+                          ? 'bg-brand text-black border-brand'
+                          : 'bg-surface-raised text-gray-400 border-surface-border hover:border-brand/40'
+                      }`}
+                    >{t}</button>
+                  ))}
+                </div>
+              </div>
+              {editError && <p className="text-red-400 text-xs">{editError}</p>}
+              <button type="submit" disabled={editing} className="btn-primary w-full">
+                {editing ? 'Saving...' : 'Save Changes'}
+              </button>
+            </form>
+          </Modal>
 
-          {addError && <p className="text-red-400 text-xs">{addError}</p>}
-          <button type="submit" disabled={adding} className="btn-primary w-full">
-            {adding ? 'Adding...' : 'Add Racer'}
-          </button>
-        </form>
-      </Modal>
+          <Modal open={deleteEventModal} onClose={() => setDeleteEventModal(false)} title="Delete Event">
+            <p className="text-gray-400 text-sm mb-2">
+              This will permanently delete <span className="text-white font-medium">{event?.event_name}</span> and all its racers and results.
+            </p>
+            <p className="text-red-400 text-xs mb-6">This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteEventModal(false)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleDeleteEvent} disabled={deletingEvent} className="btn-danger flex-1">
+                {deletingEvent ? 'Deleting...' : 'Delete Event'}
+              </button>
+            </div>
+          </Modal>
 
-      {/* Edit event modal */}
-      <Modal open={editModal} onClose={() => setEditModal(false)} title="Edit Event">
-        <form onSubmit={handleEditEvent} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="label">Event Name</label>
-              <input className="input-field" value={editForm.event_name || ''} onChange={e => setEditForm(f => ({ ...f, event_name: e.target.value }))} required />
+          <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Remove Racer">
+            <p className="text-gray-400 text-sm mb-5">Are you sure you want to remove this racer? This also deletes their result.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteId(null)} className="btn-secondary flex-1">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting} className="btn-danger flex-1">
+                {deleting ? 'Removing...' : 'Remove'}
+              </button>
             </div>
-            <div>
-              <label className="label">Gym Name</label>
-              <input className="input-field" value={editForm.gym_name || ''} onChange={e => setEditForm(f => ({ ...f, gym_name: e.target.value }))} required />
-            </div>
-            <div>
-              <label className="label">Location</label>
-              <input className="input-field" placeholder="City, ST" value={editForm.location || ''} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} required />
-            </div>
-            <div>
-              <label className="label">Event Date</label>
-              <input type="date" className="input-field" value={editForm.event_date || ''} onChange={e => setEditForm(f => ({ ...f, event_date: e.target.value }))} required />
-            </div>
-            <div>
-              <label className="label">Registration Link (optional)</label>
-              <input type="url" className="input-field" placeholder="https://..." value={editForm.registration_link || ''} onChange={e => setEditForm(f => ({ ...f, registration_link: e.target.value }))} />
-            </div>
-            <div className="col-span-2">
-              <label className="label">Description (optional)</label>
-              <textarea className="input-field resize-none" rows={2} value={editForm.description || ''} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} />
-            </div>
-          </div>
-          <div>
-            <label className="label">Event Types</label>
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map(t => (
-                <button key={t} type="button"
-                  onClick={() => toggleEditType(t)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                    (editForm.event_types || []).includes(t)
-                      ? 'bg-brand text-black border-brand'
-                      : 'bg-surface-raised text-gray-400 border-surface-border hover:border-brand/40'
-                  }`}
-                >{t}</button>
-              ))}
-            </div>
-          </div>
-          {editError && <p className="text-red-400 text-xs">{editError}</p>}
-          <button type="submit" disabled={editing} className="btn-primary w-full">
-            {editing ? 'Saving...' : 'Save Changes'}
-          </button>
-        </form>
-      </Modal>
-
-      {/* Delete event modal */}
-      <Modal open={deleteEventModal} onClose={() => setDeleteEventModal(false)} title="Delete Event">
-        <p className="text-gray-400 text-sm mb-2">
-          This will permanently delete <span className="text-white font-medium">{event?.event_name}</span> and all its racers and results.
-        </p>
-        <p className="text-red-400 text-xs mb-6">This cannot be undone.</p>
-        <div className="flex gap-3">
-          <button onClick={() => setDeleteEventModal(false)} className="btn-secondary flex-1">Cancel</button>
-          <button onClick={handleDeleteEvent} disabled={deletingEvent} className="btn-danger flex-1">
-            {deletingEvent ? 'Deleting...' : 'Delete Event'}
-          </button>
-        </div>
-      </Modal>
-
-      {/* Delete racer confirm modal */}
-      <Modal open={!!deleteId} onClose={() => setDeleteId(null)} title="Remove Racer">
-        <p className="text-gray-400 text-sm mb-5">Are you sure you want to remove this racer? This also deletes their result.</p>
-        <div className="flex gap-3">
-          <button onClick={() => setDeleteId(null)} className="btn-secondary flex-1">Cancel</button>
-          <button onClick={handleDelete} disabled={deleting} className="btn-danger flex-1">
-            {deleting ? 'Removing...' : 'Remove'}
-          </button>
-        </div>
-      </Modal>
+          </Modal>
+        </>
+      )}
     </div>
   );
 }

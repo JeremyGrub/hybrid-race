@@ -1,13 +1,43 @@
 const BASE = '/api';
 
-async function request(method, path, { body, pin } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+// ── Auth token management ──────────────────────────────────
+export function getToken() {
+  return localStorage.getItem('rg_token');
+}
+export function setToken(token) {
+  localStorage.setItem('rg_token', token);
+}
+export function clearToken() {
+  localStorage.removeItem('rg_token');
+  localStorage.removeItem('rg_gym');
+}
+export function getStoredGym() {
+  try { return JSON.parse(localStorage.getItem('rg_gym')); } catch { return null; }
+}
+export function setStoredGym(gym) {
+  localStorage.setItem('rg_gym', JSON.stringify(gym));
+}
+
+// ── Core request helper ────────────────────────────────────
+async function request(method, path, { body, pin, multipart } = {}) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (pin) headers['X-Event-Pin'] = String(pin);
+
+  let fetchBody;
+  if (multipart) {
+    // Don't set Content-Type — browser sets it with boundary for FormData
+    fetchBody = body; // body is FormData
+  } else {
+    headers['Content-Type'] = 'application/json';
+    fetchBody = body ? JSON.stringify(body) : undefined;
+  }
 
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: fetchBody,
   });
 
   const data = await res.json().catch(() => ({}));
@@ -16,24 +46,24 @@ async function request(method, path, { body, pin } = {}) {
 }
 
 export const api = {
-  // Events
+  // ── Events ──────────────────────────────────────────────
   getEvents: (params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/events${q ? `?${q}` : ''}`);
   },
   getEvent: (id) => request('GET', `/events/${id}`),
-  createEvent: (body) => request('POST', '/events', { body }),
-  updateEvent: (id, body, pin) => request('PUT', `/events/${id}`, { body, pin }),
-  deleteEvent: (id, pin) => request('DELETE', `/events/${id}`, { pin }),
+  createEvent: (formData) => request('POST', '/events', { body: formData, multipart: true }),
+  updateEvent: (id, body) => request('PUT', `/events/${id}`, { body }),
+  deleteEvent: (id) => request('DELETE', `/events/${id}`),
   verifyPin: (id, pin) => request('POST', `/events/${id}/verify-pin`, { body: { pin } }),
 
-  // Racers
+  // ── Racers ───────────────────────────────────────────────
   getRacers: (eventId) => request('GET', `/events/${eventId}/racers`),
   addRacer: (eventId, body, pin) => request('POST', `/events/${eventId}/racers`, { body, pin }),
   updateRacer: (racerId, body, pin) => request('PUT', `/racers/${racerId}`, { body, pin }),
   deleteRacer: (racerId, pin) => request('DELETE', `/racers/${racerId}`, { pin }),
 
-  // Results
+  // ── Results ──────────────────────────────────────────────
   getResults: (eventId, params = {}) => {
     const q = new URLSearchParams(params).toString();
     return request('GET', `/events/${eventId}/results${q ? `?${q}` : ''}`);
@@ -41,4 +71,14 @@ export const api = {
   updateResult: (racerId, body, pin) => request('PUT', `/racers/${racerId}/result`, { body, pin }),
   bulkResults: (eventId, results, pin) =>
     request('POST', `/events/${eventId}/results/bulk`, { body: { results }, pin }),
+
+  // ── Auth ─────────────────────────────────────────────────
+  signup: (body) => request('POST', '/auth/signup', { body }),
+  login: (body) => request('POST', '/auth/login', { body }),
+  getMe: () => request('GET', '/auth/me'),
+  stripeConnect: () => request('POST', '/auth/stripe/connect'),
+
+  // ── Registrations ────────────────────────────────────────
+  checkout: (eventId, body) => request('POST', `/events/${eventId}/checkout`, { body }),
+  getRegistrations: (eventId) => request('GET', `/events/${eventId}/registrations`),
 };

@@ -7,6 +7,14 @@ export default function Footer() {
         <Link to="/" className="font-display text-lg font-bold tracking-widest uppercase">
           Race<span className="text-brand">Grid</span>
         </Link>
+        <div className="flex items-center gap-6">
+          <Link to="/terms" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+            Terms of Service
+          </Link>
+          <Link to="/privacy" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+            Privacy Policy
+          </Link>
+        </div>
         <div className="text-center sm:text-right">
           <p className="text-gray-500 text-xs">
             Independent hybrid fitness event management. Not affiliated with any race organization.
