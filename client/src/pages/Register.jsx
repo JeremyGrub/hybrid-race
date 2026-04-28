@@ -137,7 +137,7 @@ export default function Register() {
       const result = await api.checkout(id, body);
 
       if (result.free) {
-        navigate('/register/success?free=true');
+        navigate(`/register/success?free=true&reg=${result.registration_id}`);
       } else if (result.url) {
         window.location.href = result.url;
       }

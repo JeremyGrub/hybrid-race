@@ -1,6 +1,7 @@
 const express = require('express');
 const { getDb } = require('../db/database');
 const { gymAuth } = require('../middleware/gymAuth');
+const { sendConfirmationEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -20,7 +21,6 @@ function createRacersFromRegistration(db, registration, event) {
   `);
 
   if (isDoubles(registration.category)) {
-    // Doubles: one racer row with auto-combined name "First1 Last1 & First2 Last2"
     const names = athletes.slice(0, 2)
       .map(a => [a.first_name, a.last_name].filter(Boolean).join(' '))
       .filter(Boolean);
@@ -32,7 +32,6 @@ function createRacersFromRegistration(db, registration, event) {
       registration.age_group || null
     );
   } else if (registration.category === 'Relay') {
-    // Relay: one racer per athlete, shared team name
     for (const athlete of athletes) {
       insertRacer.run(
         event.id,
@@ -45,7 +44,6 @@ function createRacersFromRegistration(db, registration, event) {
       );
     }
   } else {
-    // Solo: single athlete
     const athlete = athletes[0] || {};
     insertRacer.run(
       event.id,
@@ -113,6 +111,11 @@ router.post('/events/:id/checkout', async (req, res) => {
 
     createRacersFromRegistration(db, registration, event);
 
+    // Send confirmation email (fire and forget)
+    const parsedAthletes = JSON.parse(registration.athletes);
+    sendConfirmationEmail({ event, registration, athletes: parsedAthletes })
+      .catch(e => console.error('[email] Error:', e.message));
+
     return res.json({ success: true, free: true, registration_id: registration.id });
   }
 
@@ -161,7 +164,6 @@ router.post('/events/:id/checkout', async (req, res) => {
       customer_email: lead_email,
     };
 
-    // Only add transfer_data if gym has completed Stripe onboarding
     if (event.stripe_account_id && event.stripe_onboarding_complete) {
       sessionParams.payment_intent_data = {
         application_fee_amount: 0,
@@ -177,7 +179,6 @@ router.post('/events/:id/checkout', async (req, res) => {
     return res.json({ url: session.url });
   } catch(e) {
     console.error('Stripe checkout error:', e.message);
-    // Clean up the pending registration on Stripe error
     db.prepare('DELETE FROM registrations WHERE id = ?').run(registrationId);
     return res.status(500).json({ error: 'Failed to create checkout session' });
   }
@@ -212,19 +213,64 @@ router.post('/webhooks/stripe', async (req, res) => {
     }
 
     if (registration && registration.status !== 'paid') {
+      const amountPaid = session.amount_total || 0;
       db.prepare(
-        'UPDATE registrations SET status = \'paid\', amount_paid = ? WHERE id = ?'
-      ).run(session.amount_total || 0, registration.id);
+        "UPDATE registrations SET status = 'paid', amount_paid = ? WHERE id = ?"
+      ).run(amountPaid, registration.id);
 
       const ev = db.prepare('SELECT * FROM events WHERE id = ?').get(registration.event_id);
       if (ev) {
         const updatedReg = db.prepare('SELECT * FROM registrations WHERE id = ?').get(registration.id);
         createRacersFromRegistration(db, updatedReg, ev);
+
+        // Send confirmation email after paid registration
+        const parsedAthletes = JSON.parse(updatedReg.athletes);
+        const regWithAmount = { ...updatedReg, amount_paid: amountPaid };
+        sendConfirmationEmail({ event: ev, registration: regWithAmount, athletes: parsedAthletes })
+          .catch(e => console.error('[email] Error:', e.message));
       }
     }
   }
 
   res.json({ received: true });
+});
+
+// GET /api/registration/confirmation — fetch details for success page
+router.get('/registration/confirmation', (req, res) => {
+  const { session_id, reg } = req.query;
+  if (!session_id && !reg) return res.status(400).json({ error: 'Missing session_id or reg' });
+
+  const db = getDb();
+  let registration;
+
+  if (session_id) {
+    registration = db.prepare('SELECT * FROM registrations WHERE stripe_session_id = ?').get(session_id);
+  } else {
+    registration = db.prepare("SELECT * FROM registrations WHERE id = ? AND status = 'paid'").get(reg);
+  }
+
+  if (!registration) return res.status(404).json({ error: 'Registration not found' });
+
+  const event = db.prepare(`
+    SELECT id, event_name, event_date, location, gym_name, event_type, price
+    FROM events WHERE id = ?
+  `).get(registration.event_id);
+
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+
+  res.json({
+    registration: {
+      id: registration.id,
+      category: registration.category,
+      division: registration.division,
+      age_group: registration.age_group,
+      team_name: registration.team_name,
+      lead_email: registration.lead_email,
+      amount_paid: registration.amount_paid,
+      athletes: (() => { try { return JSON.parse(registration.athletes); } catch { return []; } })(),
+    },
+    event,
+  });
 });
 
 // GET /api/events/:id/registrations (gym auth, gym must own event)

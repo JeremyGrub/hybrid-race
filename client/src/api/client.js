@@ -81,4 +81,8 @@ export const api = {
   // ── Registrations ────────────────────────────────────────
   checkout: (eventId, body) => request('POST', `/events/${eventId}/checkout`, { body }),
   getRegistrations: (eventId) => request('GET', `/events/${eventId}/registrations`),
+  getConfirmation: (params) => {
+    const q = new URLSearchParams(params).toString();
+    return request('GET', `/registration/confirmation?${q}`);
+  },
 };
