@@ -5,6 +5,8 @@ import Leaderboard from '../components/results/Leaderboard';
 import Modal from '../components/ui/Modal';
 import Spinner from '../components/ui/Spinner';
 import { CategoryBadge, AgeGroupBadge, DivisionBadge } from '../components/ui/Badge';
+import WavesTab from '../components/waves/WavesTab';
+import RaceDayTab from '../components/waves/RaceDayTab';
 
 const CATEGORIES = ['Solo Men', 'Solo Women', 'Doubles Men', 'Doubles Women', 'Doubles Mixed', 'Relay'];
 const AGE_GROUPS = ['U30', '30-39', '40-49', '50-59', '60-69', '70+'];
@@ -346,6 +348,8 @@ export default function ManageEvent() {
   const tabs = [
     { key: 'registrations', label: 'Registrations' },
     { key: 'racers', label: 'Racers' },
+    { key: 'waves', label: 'Waves' },
+    { key: 'raceday', label: '🏁 Race Day' },
     { key: 'times', label: 'Enter Times' },
     { key: 'results', label: 'Results' },
   ];
@@ -499,6 +503,41 @@ export default function ManageEvent() {
             </table>
           )}
         </div>
+      )}
+
+      {/* Waves tab — setup waves and assign athletes */}
+      {activeTab === 'waves' && isOwner && (
+        <WavesTab eventId={id} racers={racers} />
+      )}
+
+      {/* Race Day tab — live timing with PIN auth */}
+      {activeTab === 'raceday' && (
+        <>
+          {!pinVerified ? (
+            <div className="card p-8 max-w-sm mx-auto">
+              <h2 className="font-display text-xl font-bold uppercase tracking-wide mb-1">Race Day Timing</h2>
+              <p className="text-gray-400 text-sm mb-6">Enter your event PIN to access the timing dashboard.</p>
+              <form onSubmit={verifyPin} className="space-y-4">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  className="input-field text-center tracking-widest text-xl"
+                  placeholder="••••••"
+                  value={pinInput}
+                  onChange={e => { setPinInput(e.target.value); setPinError(''); }}
+                  autoFocus
+                />
+                {pinError && <p className="text-red-400 text-xs">{pinError}</p>}
+                <button type="submit" disabled={verifying || !pinInput} className="btn-primary w-full">
+                  {verifying ? 'Verifying...' : 'Access Race Day'}
+                </button>
+              </form>
+            </div>
+          ) : (
+            <RaceDayTab eventId={id} pin={pin} />
+          )}
+        </>
       )}
 
       {/* Enter Times tab — PIN auth for race-day volunteers */}

@@ -9,6 +9,7 @@ const racersRouter = require('./routes/racers');
 const resultsRouter = require('./routes/results');
 const authRouter = require('./routes/auth');
 const registrationsRouter = require('./routes/registrations');
+const wavesRouter = require('./routes/waves');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,6 +25,7 @@ app.use(express.json());
 // API routes
 app.use('/api/auth', authRouter);
 app.use('/api', registrationsRouter);
+app.use('/api', wavesRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api', racersRouter);
 app.use('/api', resultsRouter);

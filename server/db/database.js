@@ -65,6 +65,24 @@ function getDb() {
     // Migration 10: add member pricing to events
     try { db.exec('ALTER TABLE events ADD COLUMN member_code TEXT'); } catch(e) {}
     try { db.exec('ALTER TABLE events ADD COLUMN member_price INTEGER'); } catch(e) {}
+    // Migration 11: waves and wave_racers tables
+    try {
+      db.exec(`CREATE TABLE IF NOT EXISTS waves (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_id       INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+        name           TEXT    NOT NULL,
+        scheduled_time TEXT,
+        started_at     TEXT,
+        created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+      )`);
+      db.exec(`CREATE TABLE IF NOT EXISTS wave_racers (
+        wave_id   INTEGER NOT NULL REFERENCES waves(id) ON DELETE CASCADE,
+        racer_id  INTEGER NOT NULL REFERENCES racers(id) ON DELETE CASCADE,
+        PRIMARY KEY (wave_id, racer_id)
+      )`);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_waves_event ON waves(event_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_wave_racers_wave ON wave_racers(wave_id)');
+    } catch(e) { console.error('Migration 11 error:', e.message); }
     // Migration 8: fix events incorrectly stored with use_divisions/use_age_groups=1 due to FormData string bug
     try {
       const hasMig8 = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'").get();

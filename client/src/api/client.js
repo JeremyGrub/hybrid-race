@@ -80,6 +80,18 @@ export const api = {
 
   // ── Registrations ────────────────────────────────────────
   validateMemberCode: (eventId, code) => request('POST', `/events/${eventId}/validate-member-code`, { body: { code } }),
+
+  // ── Waves ─────────────────────────────────────────────────
+  getWaves: (eventId) => request('GET', `/events/${eventId}/waves`),
+  createWave: (eventId, body) => request('POST', `/events/${eventId}/waves`, { body }),
+  updateWave: (waveId, body) => request('PUT', `/waves/${waveId}`, { body }),
+  deleteWave: (waveId) => request('DELETE', `/waves/${waveId}`),
+  addRacerToWave: (waveId, racerId) => request('POST', `/waves/${waveId}/racers`, { body: { racer_id: racerId } }),
+  removeRacerFromWave: (waveId, racerId) => request('DELETE', `/waves/${waveId}/racers/${racerId}`),
+  getWavesRaceDay: (eventId, pin) => request('GET', `/events/${eventId}/waves/raceday`, { pin }),
+  startWave: (waveId, pin) => request('POST', `/waves/${waveId}/start`, { pin }),
+  finishRacer: (waveId, racerId, pin) => request('POST', `/waves/${waveId}/racers/${racerId}/finish`, { pin }),
+  resetWaveStart: (waveId) => request('POST', `/waves/${waveId}/reset-start`),
   checkout: (eventId, body) => request('POST', `/events/${eventId}/checkout`, { body }),
   getRegistrations: (eventId) => request('GET', `/events/${eventId}/registrations`),
   getConfirmation: (params) => {
