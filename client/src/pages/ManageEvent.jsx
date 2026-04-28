@@ -146,6 +146,10 @@ export default function ManageEvent() {
   const [deleteEventModal, setDeleteEventModal] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(false);
 
+  const [resetPinModal, setResetPinModal] = useState(false);
+  const [resetPinLoading, setResetPinLoading] = useState(false);
+  const [newPin, setNewPin] = useState('');
+
   const [timeState, setTimeState] = useState({});
 
   // Auth check
@@ -315,6 +319,19 @@ export default function ManageEvent() {
     }
   }
 
+  async function handleResetPin() {
+    setResetPinLoading(true);
+    try {
+      const { pin: generatedPin } = await api.resetPin(id);
+      setNewPin(generatedPin);
+    } catch (e) {
+      alert(e.message);
+      setResetPinModal(false);
+    } finally {
+      setResetPinLoading(false);
+    }
+  }
+
   function updateTime(racerId, key, val) {
     setTimeState(ts => ({ ...ts, [racerId]: { ...ts[racerId], [key]: val } }));
   }
@@ -368,7 +385,14 @@ export default function ManageEvent() {
           <p className="text-gray-400 text-sm mt-0.5">{event.gym_name} · {event.location}</p>
         </div>
         {isOwner && (
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            <button
+              onClick={() => { setResetPinModal(true); setNewPin(''); }}
+              className="btn-secondary text-xs"
+              title="Generate a new event PIN"
+            >
+              🔑 Reset PIN
+            </button>
             <button onClick={openEditModal} className="btn-secondary">Edit Event</button>
             <button onClick={() => setDeleteEventModal(true)} className="btn-danger">Delete</button>
             <button onClick={() => setAddModal(true)} className="btn-primary">+ Add Racer</button>
@@ -764,6 +788,44 @@ export default function ManageEvent() {
                 {deleting ? 'Removing...' : 'Remove'}
               </button>
             </div>
+          </Modal>
+
+          <Modal
+            open={resetPinModal}
+            onClose={() => { setResetPinModal(false); setNewPin(''); }}
+            title="Reset Event PIN"
+          >
+            {newPin ? (
+              <div className="space-y-5">
+                <p className="text-gray-400 text-sm">Your new PIN has been generated. Share it with your volunteers and anyone who needs access to Race Day timing.</p>
+                <div className="bg-surface-raised border border-brand/30 rounded-xl p-6 text-center">
+                  <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">New Event PIN</p>
+                  <p className="font-display text-5xl font-bold tracking-[0.3em] text-brand">{newPin}</p>
+                  <p className="text-xs text-gray-600 mt-3">Save this — it won't be shown again</p>
+                </div>
+                <button
+                  onClick={() => { setResetPinModal(false); setNewPin(''); }}
+                  className="btn-primary w-full"
+                >
+                  Done
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                <p className="text-gray-400 text-sm">
+                  This will invalidate your current PIN and generate a new one. Anyone using the old PIN for timing will be locked out.
+                </p>
+                <p className="text-yellow-400 text-xs bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+                  Make sure to share the new PIN with your race day volunteers before starting.
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setResetPinModal(false)} className="btn-secondary flex-1">Cancel</button>
+                  <button onClick={handleResetPin} disabled={resetPinLoading} className="btn-primary flex-1">
+                    {resetPinLoading ? 'Generating...' : 'Generate New PIN'}
+                  </button>
+                </div>
+              </div>
+            )}
           </Modal>
         </>
       )}

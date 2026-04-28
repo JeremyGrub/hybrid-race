@@ -230,6 +230,21 @@ router.post('/:id/verify-pin', async (req, res) => {
   res.json({ valid });
 });
 
+// POST /api/events/:id/reset-pin  — gym owner generates a new PIN
+router.post('/:id/reset-pin', gymAuth, async (req, res) => {
+  const db = getDb();
+  const event = db.prepare('SELECT id, gym_id FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
+  if (!event) return res.status(404).json({ error: 'Event not found' });
+  if (event.gym_id !== req.gym.id) return res.status(403).json({ error: 'Access denied' });
+
+  const plainPin = Math.floor(100000 + Math.random() * 900000).toString();
+  const pin_hash = await bcrypt.hash(plainPin, 10);
+
+  db.prepare('UPDATE events SET pin_hash = ? WHERE id = ?').run(pin_hash, req.params.id);
+
+  res.json({ pin: plainPin });
+});
+
 // PUT /api/events/:id  — requires gym auth; gym must own event
 router.put('/:id', gymAuth, (req, res) => {
   const { event_name, location, event_date, event_type, description } = req.body;
