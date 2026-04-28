@@ -189,7 +189,7 @@ export default function EventDetail() {
             <svg className="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            <p className="text-sm">{past ? 'No results recorded' : 'Results will appear here after race day'}</p>
+            <p className="text-sm">{past ? 'No results recorded' : 'Results post live as athletes finish — check back on race day'}</p>
           </div>
         ) : (
           <>
