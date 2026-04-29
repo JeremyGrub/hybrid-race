@@ -83,6 +83,8 @@ function getDb() {
       db.exec('CREATE INDEX IF NOT EXISTS idx_waves_event ON waves(event_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_wave_racers_wave ON wave_racers(wave_id)');
     } catch(e) { console.error('Migration 11 error:', e.message); }
+    // Migration 12: add address field to events
+    try { db.exec('ALTER TABLE events ADD COLUMN address TEXT'); } catch(e) {}
     // Migration 8: fix events incorrectly stored with use_divisions/use_age_groups=1 due to FormData string bug
     try {
       const hasMig8 = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='_migrations'").get();

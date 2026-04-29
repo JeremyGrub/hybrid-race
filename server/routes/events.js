@@ -57,7 +57,7 @@ router.get('/', (req, res) => {
   const db = getDb();
 
   let query = `
-    SELECT e.id, e.gym_id, e.gym_name, e.location, e.event_name, e.description,
+    SELECT e.id, e.gym_id, e.gym_name, e.location, e.address, e.event_name, e.description,
            e.event_date, e.event_type, e.price, e.use_divisions, e.use_age_groups,
            e.is_active, e.created_at,
            COUNT(r.id) as racer_count,
@@ -86,7 +86,7 @@ router.get('/', (req, res) => {
 router.get('/:id', (req, res) => {
   const db = getDb();
   const event = db.prepare(`
-    SELECT e.id, e.gym_id, e.gym_name, e.location, e.event_name, e.description,
+    SELECT e.id, e.gym_id, e.gym_name, e.location, e.address, e.event_name, e.description,
            e.event_date, e.event_type, e.registration_link, e.price,
            e.use_divisions, e.use_age_groups, e.waiver_path,
            e.member_price,
@@ -154,7 +154,7 @@ router.post('/', gymAuth, (req, res, next) => {
 }, async (req, res) => {
   const gym = req.gym;
   const {
-    event_name, location, event_date, event_type, description,
+    event_name, location, address, event_date, event_type, description,
     price, use_divisions, use_age_groups, member_code, member_price,
   } = req.body;
 
@@ -190,13 +190,14 @@ router.post('/', gymAuth, (req, res, next) => {
 
   const db = getDb();
   const result = db.prepare(`
-    INSERT INTO events (gym_id, gym_name, location, event_name, description, event_date, event_type,
+    INSERT INTO events (gym_id, gym_name, location, address, event_name, description, event_date, event_type,
       pin_hash, price, use_divisions, use_age_groups, waiver_path, member_code, member_price)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     gym.id,
     gym.gym_name,
     location.trim(),
+    address ? address.trim() : null,
     event_name.trim(),
     description ? description.trim() : null,
     event_date,
@@ -247,7 +248,7 @@ router.post('/:id/reset-pin', gymAuth, async (req, res) => {
 
 // PUT /api/events/:id  — requires gym auth; gym must own event
 router.put('/:id', gymAuth, (req, res) => {
-  const { event_name, location, event_date, event_type, description } = req.body;
+  const { event_name, location, address, event_date, event_type, description } = req.body;
   const db = getDb();
 
   const event = db.prepare('SELECT * FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
@@ -269,15 +270,16 @@ router.put('/:id', gymAuth, (req, res) => {
   db.prepare(`
     UPDATE events SET
       location    = COALESCE(?, location),
+      address     = ?,
       event_name  = COALESCE(?, event_name),
       description = COALESCE(?, description),
       event_date  = COALESCE(?, event_date),
       event_type  = COALESCE(?, event_type)
     WHERE id = ?
-  `).run(location, event_name, description, event_date, typesToStore, req.params.id);
+  `).run(location, address ?? null, event_name, description, event_date, typesToStore, req.params.id);
 
   const updated = db.prepare(`
-    SELECT id, gym_id, gym_name, location, event_name, description, event_date, event_type,
+    SELECT id, gym_id, gym_name, location, address, event_name, description, event_date, event_type,
            price, use_divisions, use_age_groups, is_active, created_at
     FROM events WHERE id = ?
   `).get(req.params.id);

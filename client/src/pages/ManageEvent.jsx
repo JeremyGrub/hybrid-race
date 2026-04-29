@@ -272,6 +272,7 @@ export default function ManageEvent() {
     setEditForm({
       event_name: event?.event_name || '',
       location: event?.location || '',
+      address: event?.address || '',
       event_date: event?.event_date || '',
       description: event?.description || '',
       event_types: parseEventTypes(event?.event_type),
@@ -296,6 +297,7 @@ export default function ManageEvent() {
       await api.updateEvent(id, {
         event_name: editForm.event_name,
         location: editForm.location,
+        address: editForm.address || null,
         event_date: editForm.event_date,
         description: editForm.description || null,
         event_type: JSON.stringify(editForm.event_types),
@@ -738,7 +740,11 @@ export default function ManageEvent() {
                 </div>
                 <div>
                   <label className="label">Location</label>
-                  <input className="input-field" value={editForm.location || ''} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} required />
+                  <input className="input-field" placeholder="City, State" value={editForm.location || ''} onChange={e => setEditForm(f => ({ ...f, location: e.target.value }))} required />
+                </div>
+                <div className="col-span-2">
+                  <label className="label">Venue Address <span className="text-gray-600 font-normal">(optional)</span></label>
+                  <input className="input-field" placeholder="123 Main St, Austin, TX 78701" value={editForm.address || ''} onChange={e => setEditForm(f => ({ ...f, address: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">Event Date</label>

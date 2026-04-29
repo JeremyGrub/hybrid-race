@@ -64,6 +64,12 @@ function buildEmailHtml({ event, registration, athletes }) {
             <td style="padding:5px 0;color:#888888;vertical-align:top;">Location</td>
             <td style="padding:5px 0;color:#111111;font-weight:600;">${event.location}</td>
           </tr>
+          ${event.address ? `<tr>
+            <td style="padding:5px 0;color:#888888;vertical-align:top;">Address</td>
+            <td style="padding:5px 0;color:#111111;font-weight:600;">
+              <a href="https://maps.google.com/?q=${encodeURIComponent(event.address)}" style="color:#111111;">${event.address}</a>
+            </td>
+          </tr>` : ''}
           <tr>
             <td style="padding:5px 0;color:#888888;vertical-align:top;">Gym</td>
             <td style="padding:5px 0;color:#111111;font-weight:600;">${event.gym_name}</td>

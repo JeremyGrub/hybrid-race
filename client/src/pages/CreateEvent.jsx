@@ -23,6 +23,7 @@ export default function CreateEvent() {
   const [form, setForm] = useState({
     event_name: '',
     location: gym?.location || '',
+    address: '',
     event_date: '',
     event_types: [],
     description: '',
@@ -95,6 +96,7 @@ export default function CreateEvent() {
       const formData = new FormData();
       formData.append('event_name', form.event_name.trim());
       formData.append('location', form.location.trim());
+      if (form.address.trim()) formData.append('address', form.address.trim());
       formData.append('event_date', form.event_date);
       formData.append('event_type', JSON.stringify(form.event_types));
       formData.append('description', form.description.trim());
@@ -156,13 +158,23 @@ export default function CreateEvent() {
             />
           </Field>
 
-          <Field label="Location" id="location" error={errors.location}>
+          <Field label="Location" id="location" error={errors.location} hint="City and state shown on the event listing">
             <input
               id="location"
               className="input-field"
               placeholder="Austin, TX"
               value={form.location}
               onChange={e => set('location', e.target.value)}
+            />
+          </Field>
+
+          <Field label="Venue Address" id="address" error={errors.address} hint="Full street address — shown on event page and in confirmation emails (optional)">
+            <input
+              id="address"
+              className="input-field"
+              placeholder="123 Main St, Austin, TX 78701"
+              value={form.address}
+              onChange={e => set('address', e.target.value)}
             />
           </Field>
 

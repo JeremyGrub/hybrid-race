@@ -153,6 +153,16 @@ export default function EventDetail() {
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Location</p>
             <p className="text-white font-medium text-sm">{event.location}</p>
+            {event.address && (
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(event.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-brand hover:underline mt-0.5 block"
+              >
+                📍 {event.address}
+              </a>
+            )}
           </div>
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Athletes</p>
@@ -163,7 +173,7 @@ export default function EventDetail() {
             <p className={`font-medium text-sm ${isFree ? 'text-green-400' : 'text-white'}`}>
               {isFree ? 'Free' : `${priceDisplay} per person`}
             </p>
-            {event.has_member_pricing && event.member_price !== null && (
+            {!!event.has_member_pricing && event.member_price !== null && (
               <p className="text-xs text-brand mt-0.5">
                 {formatPrice(event.member_price)} for members
               </p>
