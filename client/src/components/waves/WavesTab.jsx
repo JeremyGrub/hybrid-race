@@ -75,10 +75,10 @@ export default function WavesTab({ eventId, racers }) {
     }
   }
 
-  // Racers not yet assigned to a given wave
+  // Racers not yet assigned to any wave
   function unassignedFor(wave) {
-    const assigned = new Set(wave.racers.map(r => r.id));
-    return racers.filter(r => !assigned.has(r.id));
+    const assignedAnywhere = new Set(waves.flatMap(w => w.racers.map(r => r.id)));
+    return racers.filter(r => !assignedAnywhere.has(r.id));
   }
 
   const totalAssigned = new Set(waves.flatMap(w => w.racers.map(r => r.id))).size;
