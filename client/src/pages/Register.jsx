@@ -354,7 +354,7 @@ export default function Register() {
         )}
 
         {/* Member code */}
-        {category && event.has_member_pricing && (
+        {category && !!event.has_member_pricing && (
           <div className="card p-6 space-y-3">
             <h2 className="font-display text-base font-bold uppercase tracking-widest text-gray-400">Member Pricing</h2>
             <div>
