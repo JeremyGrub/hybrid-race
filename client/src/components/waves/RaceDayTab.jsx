@@ -59,8 +59,8 @@ export default function RaceDayTab({ eventId, pin }) {
 
   useEffect(() => {
     loadWaves();
-    // Refresh wave data every 30s to pick up external changes
-    const interval = setInterval(loadWaves, 30000);
+    // Refresh wave data every 5s to pick up changes from other devices
+    const interval = setInterval(loadWaves, 5000);
     return () => clearInterval(interval);
   }, [loadWaves]);
 
