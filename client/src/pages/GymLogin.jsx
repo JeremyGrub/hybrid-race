@@ -23,7 +23,7 @@ export default function GymLogin() {
       const { token, gym } = await api.login({ email: form.email.trim(), password: form.password });
       setToken(token);
       setStoredGym(gym);
-      navigate('/dashboard');
+      navigate(gym.is_admin ? '/admin' : '/dashboard');
     } catch(err) {
       setError(err.message);
     } finally {

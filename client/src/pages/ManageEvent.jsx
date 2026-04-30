@@ -358,7 +358,8 @@ export default function ManageEvent() {
   if (!event) return <div className="text-center py-32 text-gray-400">Event not found.</div>;
 
   // Access control
-  const isOwner = !!(gym && event.gym_id === gym.id);
+  const isAdmin = !!(gym && gym.is_admin);
+  const isOwner = !!(gym && (event.gym_id === gym.id || isAdmin));
   const hasAccess = isOwner || pinVerified;
 
   // Gate screen — shown to anyone without owner or volunteer access

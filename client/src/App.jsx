@@ -9,6 +9,7 @@ import ManageEvent from './pages/ManageEvent';
 import GymLogin from './pages/GymLogin';
 import GymSignup from './pages/GymSignup';
 import GymDashboard from './pages/GymDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import Register from './pages/Register';
 import RegisterSuccess from './pages/RegisterSuccess';
 import Terms from './pages/Terms';
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/login" element={<GymLogin />} />
             <Route path="/signup" element={<GymSignup />} />
             <Route path="/dashboard" element={<GymDashboard />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/register/success" element={<RegisterSuccess />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/privacy" element={<Privacy />} />

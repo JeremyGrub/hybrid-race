@@ -11,7 +11,7 @@ function gymAuth(req, res, next) {
     const payload = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
     const db = getDb();
     const gym = db.prepare(
-      'SELECT id, email, gym_name, location, stripe_account_id, stripe_onboarding_complete FROM gyms WHERE id = ?'
+      'SELECT id, email, gym_name, location, stripe_account_id, stripe_onboarding_complete, is_admin FROM gyms WHERE id = ?'
     ).get(payload.gymId);
     if (!gym) return res.status(401).json({ error: 'Gym not found' });
     req.gym = gym;

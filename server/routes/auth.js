@@ -37,7 +37,7 @@ router.post('/signup', async (req, res) => {
   ).run(email.toLowerCase().trim(), password_hash, gym_name.trim(), location.trim());
 
   const gym = db.prepare(
-    'SELECT id, email, gym_name, location, stripe_account_id, stripe_onboarding_complete FROM gyms WHERE id = ?'
+    'SELECT id, email, gym_name, location, stripe_account_id, stripe_onboarding_complete, is_admin FROM gyms WHERE id = ?'
   ).get(Number(result.lastInsertRowid));
 
   const token = makeToken(gym);
@@ -51,7 +51,7 @@ router.post('/login', async (req, res) => {
 
   const db = getDb();
   const gym = db.prepare(
-    'SELECT id, email, password_hash, gym_name, location, stripe_account_id, stripe_onboarding_complete FROM gyms WHERE email = ?'
+    'SELECT id, email, password_hash, gym_name, location, stripe_account_id, stripe_onboarding_complete, is_admin FROM gyms WHERE email = ?'
   ).get(email.toLowerCase().trim());
 
   if (!gym) return res.status(401).json({ error: 'Invalid email or password' });

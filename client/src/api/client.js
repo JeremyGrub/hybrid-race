@@ -93,6 +93,7 @@ export const api = {
   finishRacer: (waveId, racerId, pin) => request('POST', `/waves/${waveId}/racers/${racerId}/finish`, { pin }),
   resetWaveStart: (waveId) => request('POST', `/waves/${waveId}/reset-start`),
   resetPin: (eventId) => request('POST', `/events/${eventId}/reset-pin`),
+  getAdminOverview: () => request('GET', '/admin/overview'),
   checkout: (eventId, body) => request('POST', `/events/${eventId}/checkout`, { body }),
   getRegistrations: (eventId) => request('GET', `/events/${eventId}/registrations`),
   getConfirmation: (params) => {

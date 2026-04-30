@@ -57,7 +57,8 @@
       "Bash(curl -s https://racegrid.fit/api/events/1/results)",
       "Bash(curl -s https://racegrid.fit/api/events/1/racers)",
       "Bash(curl -s \"https://racegrid.fit/api/events\")",
-      "Bash(python3 -c \"import sys,json; [print\\(e['id'], e['event_name']\\) for e in json.load\\(sys.stdin\\)]\")"
+      "Bash(python3 -c \"import sys,json; [print\\(e['id'], e['event_name']\\) for e in json.load\\(sys.stdin\\)]\")",
+      "Bash(node -e \"require\\('./client/src/pages/ManageEvent.jsx'\\)\")"
     ]
   }
 }

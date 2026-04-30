@@ -40,12 +40,12 @@ export default function Navbar() {
           {token && gym ? (
             <>
               <NavLink
-                to="/dashboard"
+                to={gym.is_admin ? '/admin' : '/dashboard'}
                 className={({ isActive }) =>
                   isActive ? 'btn-ghost text-white bg-surface-raised' : 'btn-ghost'
                 }
               >
-                {gym.gym_name}
+                {gym.is_admin ? '⚡ Admin' : gym.gym_name}
               </NavLink>
               <button onClick={handleLogout} className="btn-ghost text-gray-500 hover:text-red-400">
                 Logout
@@ -102,13 +102,13 @@ export default function Navbar() {
           {token && gym ? (
             <>
               <NavLink
-                to="/dashboard"
+                to={gym.is_admin ? '/admin' : '/dashboard'}
                 onClick={close}
                 className={({ isActive }) =>
                   `block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive ? 'bg-surface-raised text-white' : 'text-gray-400 hover:text-white hover:bg-surface-raised'}`
                 }
               >
-                {gym.gym_name}
+                {gym.is_admin ? '⚡ Admin' : gym.gym_name}
               </NavLink>
               <button
                 onClick={handleLogout}
