@@ -127,7 +127,7 @@ export default function GymDashboard() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {events.map(event => (
             <div key={event.id} className="flex flex-col gap-2">
-              <EventCard event={event} />
+              <EventCard event={event} registrationCount={event.registration_count} />
               <div className="flex gap-2 px-1">
                 <Link
                   to={`/events/${event.id}/manage`}
@@ -142,11 +142,6 @@ export default function GymDashboard() {
                   Register Link
                 </Link>
               </div>
-              {(event.registration_count || 0) > 0 && (
-                <p className="text-xs text-gray-500 px-1">
-                  {event.registration_count} paid registration{event.registration_count !== 1 ? 's' : ''}
-                </p>
-              )}
             </div>
           ))}
         </div>

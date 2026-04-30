@@ -17,7 +17,7 @@ function parseTypes(event_type) {
   }
 }
 
-export default function EventCard({ event }) {
+export default function EventCard({ event, registrationCount }) {
   const types = parseTypes(event.event_type);
 
   return (
@@ -57,6 +57,13 @@ export default function EventCard({ event }) {
           {event.racer_count ?? 0} {event.racer_count === 1 ? 'racer' : 'racers'}
         </span>
       </div>
+      {registrationCount > 0 && (
+        <div className="mt-3 pt-3 border-t border-surface-border">
+          <span className="text-xs text-brand font-medium">
+            {registrationCount} paid registration{registrationCount !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
     </Link>
   );
 }
