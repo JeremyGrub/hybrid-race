@@ -104,7 +104,7 @@ export default function GymDashboard() {
         {[
           { label: 'Total Events', value: events.length },
           { label: 'Total Athletes', value: events.reduce((s, e) => s + (e.racer_count || 0), 0) },
-          { label: 'Paid Registrations', value: paidCount },
+          { label: 'Paid Regs', value: paidCount },
         ].map(stat => (
           <div key={stat.label} className="card p-5 text-center">
             <p className="font-display text-3xl font-bold text-brand">{stat.value}</p>
