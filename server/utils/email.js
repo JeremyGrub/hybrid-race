@@ -98,7 +98,8 @@ function buildEmailHtml({ event, registration, athletes }) {
       </div>
 
       <p style="margin:0;color:#aaaaaa;font-size:13px;text-align:center;">
-        Questions? Reach out to <strong style="color:#888888;">${event.gym_name}</strong> directly.
+        Event questions? Reach out to <strong style="color:#888888;">${event.gym_name}</strong> directly.
+        <br>Platform support: <a href="mailto:support@racegrid.fit" style="color:#aaaaaa;">support@racegrid.fit</a>
       </p>
     </div>
 

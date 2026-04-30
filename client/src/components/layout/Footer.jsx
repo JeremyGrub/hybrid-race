@@ -14,6 +14,9 @@ export default function Footer() {
           <Link to="/privacy" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
             Privacy Policy
           </Link>
+          <a href="mailto:support@racegrid.fit" className="text-gray-500 hover:text-gray-300 text-xs transition-colors">
+            Contact
+          </a>
         </div>
         <div className="text-center sm:text-right">
           <p className="text-gray-500 text-xs">

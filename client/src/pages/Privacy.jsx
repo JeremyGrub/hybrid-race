@@ -129,7 +129,7 @@ export default function Privacy() {
             <h2 className="font-display text-xl font-bold uppercase tracking-wide text-white mb-3">10. Contact</h2>
             <p>
               For privacy-related questions or requests, contact us at{' '}
-              <a href="mailto:privacy@racegrid.app" className="text-brand hover:text-brand-dim">privacy@racegrid.app</a>.
+              <a href="mailto:support@racegrid.fit" className="text-brand hover:underline">support@racegrid.fit</a>.
             </p>
           </section>
 

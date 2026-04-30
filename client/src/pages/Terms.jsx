@@ -115,7 +115,7 @@ export default function Terms() {
             <h2 className="font-display text-xl font-bold uppercase tracking-wide text-white mb-3">10. Contact</h2>
             <p>
               Questions about these Terms? Contact us at{' '}
-              <a href="mailto:legal@racegrid.app" className="text-brand hover:text-brand-dim">legal@racegrid.app</a>.
+              <a href="mailto:support@racegrid.fit" className="text-brand hover:underline">support@racegrid.fit</a>.
             </p>
           </section>
 
