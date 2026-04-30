@@ -147,4 +147,74 @@ async function sendConfirmationEmail({ event, registration, athletes }) {
   }
 }
 
-module.exports = { sendConfirmationEmail };
+async function sendPinEmail({ gymEmail, gymName, eventName, eventId, pin, isReset = false }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const from = process.env.EMAIL_FROM || 'RaceGrid <noreply@racegrid.fit>';
+  const subject = isReset
+    ? `Your PIN has been reset — ${eventName}`
+    : `Your event PIN — ${eventName}`;
+  const eventUrl = `${APP_URL}/events/${eventId}/manage`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f0f0f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+  <div style="max-width:480px;margin:40px auto;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.12);">
+    <div style="background:#111111;padding:24px 36px;text-align:center;">
+      <span style="font-size:22px;font-weight:900;letter-spacing:0.12em;color:#c8ff00;text-transform:uppercase;">RaceGrid</span>
+    </div>
+    <div style="background:#ffffff;padding:36px;">
+      <h1 style="margin:0 0 6px;font-size:20px;font-weight:900;color:#111111;text-transform:uppercase;letter-spacing:0.04em;">
+        ${isReset ? 'PIN Reset' : 'Event Created'}
+      </h1>
+      <p style="margin:0 0 24px;color:#666666;font-size:14px;">
+        ${isReset
+          ? `The PIN for <strong>${eventName}</strong> has been reset. Share the new PIN with your volunteers.`
+          : `Your event <strong>${eventName}</strong> is live. Share the PIN below with your race-day volunteers.`}
+      </p>
+
+      <div style="background:#f7f7f7;border-radius:10px;padding:24px;text-align:center;margin-bottom:24px;">
+        <p style="margin:0 0 8px;font-size:11px;color:#888888;text-transform:uppercase;letter-spacing:0.1em;">Event PIN</p>
+        <p style="margin:0;font-size:48px;font-weight:900;letter-spacing:0.3em;color:#111111;font-family:monospace;">${pin}</p>
+        <p style="margin:8px 0 0;font-size:11px;color:#aaaaaa;">Keep this private — share only with your volunteers</p>
+      </div>
+
+      <div style="text-align:center;">
+        <a href="${eventUrl}"
+           style="display:inline-block;background:#c8ff00;color:#111111;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;padding:12px 32px;border-radius:8px;text-decoration:none;">
+          Open Event Dashboard
+        </a>
+      </div>
+    </div>
+    <div style="background:#f0f0f0;padding:16px 36px;text-align:center;">
+      <p style="margin:0;color:#aaaaaa;font-size:11px;">
+        Powered by <strong style="color:#888888;">RaceGrid</strong>
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [gymEmail], subject, html }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      console.error('[email] PIN email error:', err);
+    } else {
+      console.log(`[email] PIN email sent to ${gymEmail}`);
+    }
+  } catch (e) {
+    console.error('[email] Failed to send PIN email:', e.message);
+  }
+}
+
+module.exports = { sendConfirmationEmail, sendPinEmail };

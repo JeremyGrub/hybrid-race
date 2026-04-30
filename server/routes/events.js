@@ -5,6 +5,7 @@ const fs = require('fs');
 const { getDb } = require('../db/database');
 const { pinAuth } = require('../middleware/pinAuth');
 const { gymAuth } = require('../middleware/gymAuth');
+const { sendPinEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -211,8 +212,20 @@ router.post('/', gymAuth, (req, res, next) => {
     storedMemberPrice
   );
 
+  const newEventId = Number(result.lastInsertRowid);
+
+  // Email PIN to gym owner (fire and forget)
+  sendPinEmail({
+    gymEmail: gym.email,
+    gymName: gym.gym_name,
+    eventName: event_name.trim(),
+    eventId: newEventId,
+    pin: plainPin,
+    isReset: false,
+  }).catch(e => console.error('[email] PIN email error:', e.message));
+
   res.status(201).json({
-    id: Number(result.lastInsertRowid),
+    id: newEventId,
     event_name: event_name.trim(),
     pin: plainPin,
   });
@@ -234,7 +247,7 @@ router.post('/:id/verify-pin', async (req, res) => {
 // POST /api/events/:id/reset-pin  — gym owner generates a new PIN
 router.post('/:id/reset-pin', gymAuth, async (req, res) => {
   const db = getDb();
-  const event = db.prepare('SELECT id, gym_id FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
+  const event = db.prepare('SELECT id, gym_id, event_name FROM events WHERE id = ? AND is_active = 1').get(req.params.id);
   if (!event) return res.status(404).json({ error: 'Event not found' });
   if (event.gym_id !== req.gym.id) return res.status(403).json({ error: 'Access denied' });
 
@@ -242,6 +255,16 @@ router.post('/:id/reset-pin', gymAuth, async (req, res) => {
   const pin_hash = await bcrypt.hash(plainPin, 10);
 
   db.prepare('UPDATE events SET pin_hash = ? WHERE id = ?').run(pin_hash, req.params.id);
+
+  // Email new PIN to gym owner (fire and forget)
+  sendPinEmail({
+    gymEmail: req.gym.email,
+    gymName: req.gym.gym_name,
+    eventName: event.event_name,
+    eventId: event.id,
+    pin: plainPin,
+    isReset: true,
+  }).catch(e => console.error('[email] PIN reset email error:', e.message));
 
   res.json({ pin: plainPin });
 });
