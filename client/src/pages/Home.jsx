@@ -222,15 +222,15 @@ export default function Home() {
                     <p className="font-display font-bold text-white uppercase tracking-wide">Wave 1</p>
                     <p className="text-xs text-gray-500 mt-0.5">4 athletes · 2/4 finished</p>
                   </div>
-                  <span className="font-display text-2xl font-bold text-brand tabular-nums">04:32.7</span>
+                  <span className="font-display text-2xl font-bold text-brand tabular-nums">01:03:18.4</span>
                 </div>
                 {/* Athlete cards */}
                 <div className="p-4 grid grid-cols-2 gap-3">
                   {[
-                    { name: 'Jeremy G.', time: '03:44', done: true },
-                    { name: 'Wisnton G.', time: '04:01', done: true },
-                    { name: 'Lilly G.', time: null, done: false },
-                    { name: 'Wrigley G.', time: null, done: false },
+                    { name: 'Marcus T.', time: '58:42', done: true },
+                    { name: 'Sara K.', time: '01:01:15', done: true },
+                    { name: 'Derek M.', time: null, done: false },
+                    { name: 'Priya L.', time: null, done: false },
                   ].map(a => (
                     <div key={a.name} className={`rounded-xl border p-3 text-center ${a.done ? 'bg-green-500/10 border-green-500/30' : 'bg-surface-raised border-surface-border'}`}>
                       <p className="text-sm font-semibold text-white truncate">{a.name}</p>
