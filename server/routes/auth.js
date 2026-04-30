@@ -17,28 +17,6 @@ function makeToken(gym) {
   );
 }
 
-// POST /api/auth/create-admin  — ONE TIME USE, remove after running
-router.post('/create-admin', async (req, res) => {
-  const secret = req.headers['x-admin-setup'];
-  if (secret !== (process.env.ADMIN_SETUP_SECRET || 'racegrid-setup-2026')) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  const { email, password } = req.body;
-  if (!email || !password || password.length < 10) {
-    return res.status(400).json({ error: 'Email and password (min 10 chars) required' });
-  }
-  const db = getDb();
-  const existing = db.prepare('SELECT id, is_admin FROM gyms WHERE email = ?').get(email.toLowerCase().trim());
-  if (existing) {
-    db.prepare('UPDATE gyms SET is_admin = 1 WHERE id = ?').run(existing.id);
-    return res.json({ ok: true, message: 'Existing account promoted to admin' });
-  }
-  const password_hash = await bcrypt.hash(password, 12);
-  db.prepare(`INSERT INTO gyms (email, password_hash, gym_name, location, is_admin) VALUES (?, ?, 'RaceGrid Admin', 'Internal', 1)`)
-    .run(email.toLowerCase().trim(), password_hash);
-  res.json({ ok: true, message: 'Admin account created' });
-});
-
 // POST /api/auth/signup
 router.post('/signup', async (req, res) => {
   const { email, password, gym_name, location } = req.body;
