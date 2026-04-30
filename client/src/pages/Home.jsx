@@ -28,8 +28,8 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
-    title: 'Enter Times',
-    desc: 'Post finish times live. Results auto-sort by time and rank athletes instantly.',
+    title: 'Wave Timing',
+    desc: 'Group athletes into waves, start a wave timer, and tap Finish per athlete — times post to results instantly.',
   },
   {
     icon: (
@@ -174,6 +174,80 @@ export default function Home() {
               <p className="text-gray-400 text-sm leading-relaxed">{f.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Race Day Spotlight ───────────────────────────── */}
+      <section className="border-y border-surface-border bg-surface/30 py-16 sm:py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col lg:flex-row items-center gap-12">
+
+            {/* Text */}
+            <div className="flex-1 max-w-lg">
+              <div className="inline-flex items-center gap-2 bg-brand/10 border border-brand/20 rounded-full px-3 py-1 text-xs text-brand font-medium mb-5">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
+                Race Day Dashboard
+              </div>
+              <h2 className="font-display text-3xl sm:text-4xl font-extrabold uppercase tracking-tight mb-4">
+                Built for the <span className="text-brand">gym floor</span>
+              </h2>
+              <p className="text-gray-400 text-base leading-relaxed mb-6">
+                Organize athletes into waves or heats before the event. On race day, hit Start — a live timer runs for every athlete in the wave. Tap one button to stop their clock the moment they finish.
+              </p>
+              <ul className="space-y-3">
+                {[
+                  'Group any number of athletes into waves with scheduled start times',
+                  'Server-side timer — safe to refresh or hand off between volunteers',
+                  'One tap per athlete stops the clock and posts to the leaderboard',
+                  'PIN-protected so volunteers can time without a gym login',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-gray-400">
+                    <span className="mt-0.5 shrink-0 w-4 h-4 rounded-full bg-brand/15 border border-brand/30 flex items-center justify-center">
+                      <svg className="w-2.5 h-2.5 text-brand" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Mock UI */}
+            <div className="flex-1 w-full max-w-sm lg:max-w-md">
+              <div className="card overflow-hidden border-brand/20">
+                {/* Wave header */}
+                <div className="bg-brand/5 border-b border-brand/20 px-5 py-4 flex items-center justify-between">
+                  <div>
+                    <p className="font-display font-bold text-white uppercase tracking-wide">Wave 1</p>
+                    <p className="text-xs text-gray-500 mt-0.5">4 athletes · 2/4 finished</p>
+                  </div>
+                  <span className="font-display text-2xl font-bold text-brand tabular-nums">04:32.7</span>
+                </div>
+                {/* Athlete cards */}
+                <div className="p-4 grid grid-cols-2 gap-3">
+                  {[
+                    { name: 'Jeremy G.', time: '03:44', done: true },
+                    { name: 'Wisnton G.', time: '04:01', done: true },
+                    { name: 'Lilly G.', time: null, done: false },
+                    { name: 'Wrigley G.', time: null, done: false },
+                  ].map(a => (
+                    <div key={a.name} className={`rounded-xl border p-3 text-center ${a.done ? 'bg-green-500/10 border-green-500/30' : 'bg-surface-raised border-surface-border'}`}>
+                      <p className="text-sm font-semibold text-white truncate">{a.name}</p>
+                      {a.done ? (
+                        <p className="font-display text-lg font-bold text-green-400 mt-1">{a.time}</p>
+                      ) : (
+                        <div className="mt-2 bg-brand rounded-lg py-1.5 text-xs font-bold text-black uppercase tracking-wide">
+                          Finish
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+          </div>
         </div>
       </section>
 
