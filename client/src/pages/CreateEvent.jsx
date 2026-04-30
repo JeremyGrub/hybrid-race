@@ -298,7 +298,7 @@ export default function CreateEvent() {
                 <input
                   id="member_code"
                   className="input-field"
-                  placeholder="e.g. GWB2026"
+                  placeholder="e.g. MEMBER2026"
                   value={form.member_code}
                   onChange={e => set('member_code', e.target.value)}
                 />
