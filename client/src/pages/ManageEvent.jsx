@@ -152,11 +152,6 @@ export default function ManageEvent() {
 
   const [timeState, setTimeState] = useState({});
 
-  // Auth check
-  useEffect(() => {
-    if (!getToken()) navigate('/login', { replace: true });
-  }, [navigate]);
-
   const loadData = useCallback(async () => {
     try {
       const [ev, rc] = await Promise.all([api.getEvent(id), api.getRacers(id)]);
@@ -175,19 +170,19 @@ export default function ManageEvent() {
       });
       setTimeState(ts);
 
-      // Load registrations if gym owns this event
+      // Load registrations only if gym owns this event
       if (getToken()) {
         try {
           const regs = await api.getRegistrations(id);
           setRegistrations(regs);
-        } catch { /* not owner or no regs */ }
+        } catch { /* not owner */ }
       }
-    } catch (err) {
-      if (err.message.includes('401')) navigate('/login', { replace: true });
+    } catch {
+      // event not found handled below
     } finally {
       setLoading(false);
     }
-  }, [id, navigate]);
+  }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -201,6 +196,7 @@ export default function ManageEvent() {
         sessionStorage.setItem(`event-pin-${id}`, pinInput);
         setPin(pinInput);
         setPinVerified(true);
+        setActiveTab('raceday');
       } else {
         setPinError('Incorrect PIN');
       }
@@ -361,17 +357,83 @@ export default function ManageEvent() {
   if (loading) return <div className="flex justify-center py-32"><Spinner size="lg" /></div>;
   if (!event) return <div className="text-center py-32 text-gray-400">Event not found.</div>;
 
-  // Check ownership
-  const isOwner = gym && event.gym_id === gym.id;
+  // Access control
+  const isOwner = !!(gym && event.gym_id === gym.id);
+  const hasAccess = isOwner || pinVerified;
 
-  const tabs = [
-    { key: 'registrations', label: 'Registrations' },
-    { key: 'racers', label: 'Racers' },
-    { key: 'waves', label: 'Waves' },
-    { key: 'raceday', label: '🏁 Race Day' },
-    { key: 'times', label: 'Enter Times' },
-    { key: 'results', label: 'Results' },
-  ];
+  // Gate screen — shown to anyone without owner or volunteer access
+  if (!hasAccess) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16">
+        <div className="text-center mb-8">
+          <Link to={`/events/${id}`} className="text-gray-500 hover:text-gray-300 text-xs">
+            ← Back to event
+          </Link>
+          <h1 className="font-display text-2xl font-bold uppercase tracking-wide mt-4 mb-1">
+            {event.event_name}
+          </h1>
+          <p className="text-gray-500 text-sm">{event.gym_name} · {event.location}</p>
+        </div>
+
+        <div className="card p-6 space-y-5">
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-brand/10 border border-brand/20 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-5 h-5 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h2 className="font-display text-lg font-bold uppercase tracking-wide mb-1">Volunteer Access</h2>
+            <p className="text-gray-500 text-sm">Enter the event PIN to access race day timing</p>
+          </div>
+
+          <form onSubmit={verifyPin} className="space-y-3">
+            <input
+              className="input-field text-center text-2xl tracking-[0.4em] font-mono"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="000000"
+              value={pinInput}
+              onChange={e => { setPinInput(e.target.value.replace(/\D/g, '')); setPinError(''); }}
+              autoFocus
+            />
+            {pinError && <p className="text-red-400 text-xs text-center">{pinError}</p>}
+            <button
+              type="submit"
+              disabled={verifying || pinInput.length !== 6}
+              className="btn-primary w-full"
+            >
+              {verifying ? 'Verifying...' : 'Enter'}
+            </button>
+          </form>
+
+          <div className="border-t border-surface-border pt-4 text-center">
+            <p className="text-xs text-gray-600 mb-2">Gym owner?</p>
+            <Link to="/login" className="text-sm text-brand hover:underline">
+              Log in to your gym account →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tabs — owners see everything, volunteers see race-day subset
+  const tabs = isOwner
+    ? [
+        { key: 'registrations', label: 'Registrations' },
+        { key: 'racers', label: 'Racers' },
+        { key: 'waves', label: 'Waves' },
+        { key: 'raceday', label: '🏁 Race Day' },
+        { key: 'times', label: 'Enter Times' },
+        { key: 'results', label: 'Results' },
+      ]
+    : [
+        { key: 'raceday', label: '🏁 Race Day' },
+        { key: 'times', label: 'Enter Times' },
+        { key: 'racers', label: 'Racers' },
+        { key: 'results', label: 'Results' },
+      ];
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
@@ -382,6 +444,20 @@ export default function ManageEvent() {
             {isOwner ? '← Dashboard' : '← Back to event'}
           </Link>
         </div>
+        {!isOwner && pinVerified && (
+          <div className="mb-3 flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 text-xs text-brand bg-brand/10 border border-brand/20 rounded-full px-3 py-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand" />
+              Volunteer access
+            </span>
+            <button
+              onClick={() => { sessionStorage.removeItem(`event-pin-${id}`); setPinVerified(false); setPin(''); setPinInput(''); }}
+              className="text-xs text-gray-600 hover:text-gray-400"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-display text-2xl sm:text-3xl font-bold uppercase tracking-wide leading-tight">{event.event_name}</h1>
@@ -540,62 +616,13 @@ export default function ManageEvent() {
         <WavesTab eventId={id} racers={racers} />
       )}
 
-      {/* Race Day tab — live timing with PIN auth */}
-      {activeTab === 'raceday' && (
-        <>
-          {!pinVerified ? (
-            <div className="card p-8 max-w-sm mx-auto">
-              <h2 className="font-display text-xl font-bold uppercase tracking-wide mb-1">Race Day Timing</h2>
-              <p className="text-gray-400 text-sm mb-6">Enter your event PIN to access the timing dashboard.</p>
-              <form onSubmit={verifyPin} className="space-y-4">
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  className="input-field text-center tracking-widest text-xl"
-                  placeholder="••••••"
-                  value={pinInput}
-                  onChange={e => { setPinInput(e.target.value); setPinError(''); }}
-                  autoFocus
-                />
-                {pinError && <p className="text-red-400 text-xs">{pinError}</p>}
-                <button type="submit" disabled={verifying || !pinInput} className="btn-primary w-full">
-                  {verifying ? 'Verifying...' : 'Access Race Day'}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <RaceDayTab eventId={id} pin={pin} />
-          )}
-        </>
-      )}
+      {/* Race Day tab */}
+      {activeTab === 'raceday' && <RaceDayTab eventId={id} pin={pin} />}
 
-      {/* Enter Times tab — PIN auth for race-day volunteers */}
+      {/* Enter Times tab */}
       {activeTab === 'times' && (
         <>
-          {!pinVerified ? (
-            <div className="card p-8 max-w-sm mx-auto">
-              <h2 className="font-display text-xl font-bold uppercase tracking-wide mb-1">Race-Day Time Entry</h2>
-              <p className="text-gray-400 text-sm mb-6">Enter your event PIN to enter finish times.</p>
-              <form onSubmit={verifyPin} className="space-y-4">
-                <input
-                  type="password"
-                  inputMode="numeric"
-                  maxLength={6}
-                  className="input-field text-center tracking-widest text-xl"
-                  placeholder="••••••"
-                  value={pinInput}
-                  onChange={e => { setPinInput(e.target.value); setPinError(''); }}
-                  autoFocus
-                />
-                {pinError && <p className="text-red-400 text-xs">{pinError}</p>}
-                <button type="submit" disabled={verifying || !pinInput} className="btn-primary w-full">
-                  {verifying ? 'Verifying...' : 'Access Time Entry'}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="card overflow-hidden">
+          <div className="card overflow-hidden">
               {racers.length === 0 ? (
                 <div className="text-center py-16 text-gray-500">Add racers first to enter times.</div>
               ) : (
@@ -636,7 +663,6 @@ export default function ManageEvent() {
                 </table>
               )}
             </div>
-          )}
         </>
       )}
 
@@ -719,11 +745,6 @@ export default function ManageEvent() {
                 <label className="label">Bib # (optional)</label>
                 <input className="input-field" placeholder="42" value={addForm.bib_number} onChange={e => setAddForm(f => ({ ...f, bib_number: e.target.value }))} />
               </div>
-              {!pinVerified && (
-                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                  <p className="text-yellow-400 text-xs">You need to enter your PIN (in the Enter Times tab) to add/remove racers manually.</p>
-                </div>
-              )}
               {addError && <p className="text-red-400 text-xs">{addError}</p>}
               <button type="submit" disabled={adding} className="btn-primary w-full">
                 {adding ? 'Adding...' : 'Add Racer'}
