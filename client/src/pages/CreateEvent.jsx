@@ -294,11 +294,11 @@ export default function CreateEvent() {
               <p className="text-xs text-gray-500 mt-0.5">Set a discounted price for gym members. Share the code privately — members will be verified on race day.</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Member Code" id="member_code" hint='e.g. "GWB2026"'>
+              <Field label="Member Code" id="member_code">
                 <input
                   id="member_code"
                   className="input-field"
-                  placeholder="MEMBERS2026"
+                  placeholder="e.g. GWB2026"
                   value={form.member_code}
                   onChange={e => set('member_code', e.target.value)}
                 />
